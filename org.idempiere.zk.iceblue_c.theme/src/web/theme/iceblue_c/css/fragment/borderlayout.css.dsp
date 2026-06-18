@@ -32,6 +32,7 @@
 .z-south-splitter-button {
 	filter: alpha(opacity=100);  <%-- IE --%>
 	opacity: 1.0;  <%-- Moz + FF --%>
+	background-color: #FFC107;
 }
 
 .z-east-splitter-button-over,

@@ -17,6 +17,7 @@
 
 .main-parameter-layout {
 	height: 100%;
+	background-color: #c7e8ff;
 }
 .main-parameter-layout,
 .top-parameter-layout,
@@ -114,6 +115,9 @@
 	width: 70%;
 	margin-left: 5%;
 	margin-right: 25%;
+}
+.input-paramenter-layout .z-grid-body {
+	background-color: #c7e8ff;
 }
 @media screen and (max-width: 700px) {
 	.input-paramenter-layout{

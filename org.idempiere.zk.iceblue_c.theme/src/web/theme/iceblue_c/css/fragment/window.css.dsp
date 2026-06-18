@@ -21,6 +21,17 @@ div.wc-modal, div.wc-modal-none, div.wc-highlighted, div.wc-highlighted-none {
 	border: none;
 }
 
+.z-window .z-window-content .z-south {
+    background: #c7e8ff;
+	border-top: 1px solid #cccccc;
+}
+.z-window .z-window-content .z-center {
+    background: #c7e8ff;
+}
+.z-window .z-window-content .z-grid-body {
+    background: #c7e8ff;
+}
+
 .z-window-header {
 	padding: 4px 6px 4px 9px;
 }
@@ -35,6 +46,7 @@ div.wc-modal, div.wc-modal-none, div.wc-highlighted, div.wc-highlighted-none {
 {
 	color: var(--zk-window-header-color);
 	font-weight: bold;
+	background-color: #7ac8ff;
 }
 
 .z-window-overlapped, .z-window-popup, .z-window-modal, .z-window-highlighted 
@@ -73,6 +85,10 @@ div.wc-modal, div.wc-modal-none, div.wc-highlighted, div.wc-highlighted-none {
 .popup-dialog .dialog-content {
 	padding: 8px !important;
 	--margin-bottom: 20px !important;
+	background-color: #c7e8ff !important;
+}
+.popup-dialog .z-vlayout .z-vlayout-inner {
+   padding-bottom: 0px !important;
 }
 
 .popup-dialog.z-window-overlapped .dialog-footer {
@@ -144,6 +160,23 @@ div.wc-modal, div.wc-modal-none, div.wc-highlighted, div.wc-highlighted-none {
 }
 .quick-form.z-window .z-south-body .confirm-panel {
 	padding-top: 9px; 
+}
+
+.quick-form .z-north {
+	background: #c7e8ff;
+}
+.quick-form .z-center {
+	background: #c7e8ff;
+}
+.quick-form .z-south {
+	background: #c7e8ff;
+	border-top: 1px solid #cccccc; 
+}
+.quick-form .z-window-content {
+	background: #c7e8ff;
+}
+.quick-form .z-paging {
+	background: #c7e8ff;
 }
 
 <%-- record id editor dialog --%>

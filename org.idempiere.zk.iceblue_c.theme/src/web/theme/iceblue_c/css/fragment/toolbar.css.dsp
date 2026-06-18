@@ -73,6 +73,9 @@
 	color: var(--zk-toolbar-button-text-color);
 	flex-shrink: 0;
 }
+.z-toolbarbutton:focus {
+	border-color: transparent;
+}
 .z-toolbarbutton .z-toolbarbutton-content {
 	display: inline-flex;
     align-items: center;

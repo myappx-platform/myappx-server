@@ -4,6 +4,7 @@ Copyright (C) 2009 Low Heng Sin
 Copyright (C) 2009 Idalica Corporation
 -->
 <zk>
+
 <zscript>
     import org.compiere.Adempiere;
 	var isLoginInfoShown = Adempiere.isLoginInfoShown();
@@ -11,9 +12,9 @@ Copyright (C) 2009 Idalica Corporation
 </zscript>
 <div style="margin: 5px;">
 	<hlayout use="org.adempiere.webui.component.FlexHlayout" align="center">
-		<a href="https://www.idempiere.org" target="_blank"><image src="~./theme/iceblue_c/images/login-logo.png" style="height: 85px;"/></a>
+		<image src="~./theme/iceblue_c/images/vendor-logo.png" width="80%"/>
 		<div style="margin-left: 15px; margin-right: 5px;">
-			<label multiline="true" value="iDempiere 14 Dev Build Online Demonstration" if="${isVersionShown == true}"
+			<label multiline="true" value="" if="${isVersionShown == true}"
 				style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; color:#578BB8; font-size:1.3em; font-weight: bold;" />
 		</div>	
 	</hlayout>

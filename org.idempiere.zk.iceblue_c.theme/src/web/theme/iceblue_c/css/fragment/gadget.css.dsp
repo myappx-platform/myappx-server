@@ -7,8 +7,9 @@
 	height: 100%;
 }
 .z-panel-head {
-	padding-bottom: 1px;
+	padding-bottom: 0px;
 	border: none;
+	background-color: #f4c855;
 }
 .z-panel-head .z-panel-header {
 	margin-top: 2px;
@@ -18,6 +19,7 @@
 .z-caption .z-caption-content {
 	cursor: move;
 	padding: 0px;
+	font-weight: bold;
 }
 .z-panel-icon {
 	font-size: 10px !important;

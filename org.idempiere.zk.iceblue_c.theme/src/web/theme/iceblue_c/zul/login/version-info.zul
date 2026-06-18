@@ -45,11 +45,6 @@ Copyright (C) 2009 Idalica Corporation
 			<td>:</td>
 			<td align="left">${dbVersion}</td>
 		</tr>
-		<tr if="${isVendorShown == true}">
-			<td align="right">Vendor</td>
-			<td>:</td>
-			<td align="left">${vendor}</td>
-		</tr>
 		<tr if="${isJVMShown == true}">
 			<td align="right">JVM</td>
 			<td>:</td>

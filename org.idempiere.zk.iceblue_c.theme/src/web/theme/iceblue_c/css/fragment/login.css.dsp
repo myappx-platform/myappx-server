@@ -1,5 +1,16 @@
 .login-window {
 	background-color: var(--zk-login-window-background-color);
+	background-image: url(../images/background-world.jpg) !important;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.login-window .z-window {
+	background-color: transparent;
+}
+
+.login-window .z-west-splitter {
+	background: #00000040;
 }
 
 .login-window .z-window-content {

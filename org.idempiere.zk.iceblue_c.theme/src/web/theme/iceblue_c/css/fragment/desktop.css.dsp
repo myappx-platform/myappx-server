@@ -15,6 +15,7 @@
 
 .desktop-header {
 	background-color: ${u:sysConfig("ZK_DESKTOP_HEADER_BACKGROUND_COLOR", "#C7E8FF")}; <%-- SysConfig with default to #C7E8FF --%>
+	background-image: linear-gradient(#7ac8ff, #C7E8FF);
 	width: 100%;
 	height: 46px;
 	padding-left: 4px;
@@ -109,6 +110,9 @@
 .desktop-center > .z-center-body {
 	padding: 0px;
 }
+.desktop-center .desktop-tabbox .z-tabpanel {
+    background: #c7e8ff;
+}
 
 <%-- tabbox for application windows --%>
 .desktop-tabbox {
@@ -161,16 +165,44 @@
 	height: 16px;
 }
 
+.desktop-tabbox.z-tabbox .adtab-form .z-vlayout-inner .z-tabbox-top {
+    padding: 0px 0px 0px 0px !important; 
+    width: 97% !important;
+	margin: 20px 0px 20px 20px !important;
+}
+
 .desktop-tabpanel {
 	margin: 0;
 	padding: 0;
 	border: 0;
 	position: relative !important;
+	border: 1px solid #cccccc !important;
 }
 .desktop-tabpanel > .z-window-embedded {
 	border: none;
 }
+.desktop-tabpanel.z-tabpanel .z-window-content {
+	padding: 0px;
+}
+
+.desktop-tabpanel.z-tabpanel .z-borderlayout .z-center {
+    background: #c7e8ff;
+}
+.desktop-tabpanel.z-tabpanel .z-borderlayout .z-south {
+    background: #c7e8ff;
+}
+.desktop-tabpanel.z-tabpanel .z-borderlayout .z-north {
+    background: #c7e8ff;
+}
+.desktop-tabpanel.z-tabpanel .z-borderlayout .z-south-splitter {
+	border-top: 1px solid #cccccc;
+    background: #c7e8ff;
+}
+
 <%-- the home tab panel --%>
+.desktop-hometab {
+	font-weight:bold;
+}
 .desktop-home-tabpanel {
 	width: 100% !important;
 }
@@ -188,7 +220,8 @@
 }
 .desktop-left-column + .z-west-splitter,  .desktop-left-column.z-west {
 	border-top: none; 
-	border-right: 1px solid transparent;
+	border-right: 0px solid transparent;
+	background-color: #c7e8ff;
 }
 .desktop-left-column .z-west-body {
 	border-right: none;
@@ -204,7 +237,8 @@
 }
 .desktop-right-column + .z-east-splitter,  .desktop-right-column.z-east {
 	border-top: none; 
-	border-left: 1px solid transparent;
+	border-left: 0px solid transparent;
+	background-color: #c7e8ff;
 }
 .desktop-right-column .z-east-body {
 	border-left: none;

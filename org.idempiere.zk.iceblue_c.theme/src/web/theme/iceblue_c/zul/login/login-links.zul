@@ -21,9 +21,9 @@ Copyright (C) 2009 Idalica Corporation
 <div class="loginLinksBox" if="${isLoginInfoShown == true}"
 	style="position: absolute; bottom: 30px;">
 
-	<toolbarbutton href="http://www.zkoss.org" image="~./theme/iceblue_c/images/zkpowered_s.png"
-		tooltiptext="Powered by Zk" target="_blank"
-		/>
+    <toolbarbutton href="http://www.idempiere.org" image="~./theme/iceblue_c/images/powered-by-idempiere.png" width="70%"
+        tooltiptext="Powered by iDempiere" target="_blank"
+        />
 </div>
 
 </zk>

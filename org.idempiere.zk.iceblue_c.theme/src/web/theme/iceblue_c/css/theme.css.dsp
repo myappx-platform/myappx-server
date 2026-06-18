@@ -2,10 +2,28 @@
 <%@ taglib uri="http://www.zkoss.org/dsp/web/core" prefix="c" %>
 <%@ taglib uri="http://www.idempiere.org/dsp/web/util" prefix="u" %>
 
+/* noto-sans-sc-regular - chinese-simplified_latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'Noto Sans SC';
+  font-style: normal;
+  font-weight: 400;
+  src: url('fonts/noto-sans-sc-v40-chinese-simplified_latin-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
+/* noto-serif-sc-regular - chinese-simplified_latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 400;
+  src: url('fonts/noto-serif-sc-v35-chinese-simplified_latin-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
 :root {
 	/* Core CSS variables */
 	--zk-base-font-size: 12px;
-	--zk-base-title-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+	--zk-base-title-font-family: -apple-system, BlinkMacSystemFont, "Microsoft Yahei", "Noto Sans SC", "Noto Serif SC", "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 	--zk-base-content-font-family: var(--zk-base-title-font-family);
 
 	--zk-color-primary: #0093F9;
@@ -17,7 +35,7 @@
     --zk-toolbar-button-checked-background-color: #7ac8ff; /* var(--zk-color-primary); */
 
 	/* Custom CSS variables */
-	--zk-body-background-color: #D4E3F4;
+	--zk-body-background-color: #c7e8ff;
     --zk-body-text-color: #333;
     --zk-icon-font-family: FontAwesome;
 
@@ -30,11 +48,11 @@
 	--zk-attachment-drag-border-color: #3fb900;
     --zk-frozen-background-color: white;
 
-	--zk-adwindow-status-background-color: #f6fafe;
+	--zk-adwindow-status-background-color: #c7e8ff;
 	--zk-adwindow-docstatus-error-color: red;
-	--zk-adwindow-breadcrumb-background-color: #ffffff;
+	--zk-adwindow-breadcrumb-background-color: #7ac8ff;
 	--zk-adwindow-breadcrumb-border-color: #c5c5c5;
-	--zk-adwindow-detailpane-grid-south-background-color: #ffffff;
+	--zk-adwindow-detailpane-grid-south-background-color: #7ac8ff;
 	--zk-adwindow-sub-tab-border-color: #696969;
 	--zk-adwindow-activity-card-border-color: #d0cdc8;
 	--zk-adwindow-mobile-overflow-active-background-color: #ddd;
@@ -53,7 +71,7 @@
 
 	--zk-button-os-hover-color: #ffffff;
 	--zk-button-os-hover-background-color: #7ac8ff;
-	--zk-button-focus-border-color-local: black;
+	--zk-button-focus-border-color-local: transparent;
 	--zk-button-sorttab-shadow-color: #bbb;
 	--zk-button-sorttab-color: #555;
 	--zk-button-sorttab-border-color: #bbb;
@@ -66,13 +84,13 @@
 	--zk-button-ok-icon-color: white;
 
 	--zk-desktop-header-background-color: #c7e8ff;
-	--zk-desktop-header-border-color: #adddff;
+	--zk-desktop-header-border-color: #c7e8ff;
 	--zk-desktop-header-hover-background-color: #e0f2ff;
 	--zk-desktop-header-hover-color: rgba(0,0,0,0.9);
 	--zk-desktop-tab-toolbar-hover-background-color: #ddd;
 	--zk-desktop-tab-toolbar-hover-shadow-color: #ccc;
 	--zk-desktop-column-border-color: #c5c5c5;
-	--zk-desktop-column-background-color: #f6fafe;
+	--zk-desktop-column-background-color: #c7e8ff;
 	--zk-desktop-toolbar-icon-color: rgba(0,0,0,0.57);
 
 	--zk-drill-window-field-color: gray;
@@ -178,11 +196,11 @@
 	--zk-input-element-checkbox-focus-color: #ffff08;
 	--zk-input-element-label-color: var(--zk-body-text-color);
 
-	--zk-login-window-background-color: #c7e8ff;
-	--zk-login-box-background-color: white;
+	--zk-login-window-background-color: transparent;
+	--zk-login-box-background-color: rgba(234,240,256,0.5);
 	--zk-login-header-text-color: #484848;
 	--zk-login-label-color: black;
-	--zk-login-side-panel-background-color: #ffffff;
+	--zk-login-side-panel-background-color: transparent;
 
 	--zk-menu-tree-disabled-color: #c5cacb;
 	--zk-menu-tree-disabled-border-color: #d0def0;
@@ -213,10 +231,10 @@
 	--zk-tree-moveitem-inset-shadow-color: #9f9f9f;
 	
 	--zk-window-modal-background-color: white;
-	--zk-window-transparent-color: transparent;
+	--zk-window-transparent-color: #cccccc;
 	--zk-window-header-color: #484848;
 	--zk-window-embedded-header-color: #fff;
-	--zk-window-dialog-footer-background-color: #f7faff;
+	--zk-window-dialog-footer-background-color: #c7e8ff;
 	--zk-window-dialog-footer-shadow-color: #ffffff;
 	--zk-window-quickform-readonly-color: #252525;
 	--zk-window-quickform-current-row-border-color: #6f97d2;
