@@ -1151,7 +1151,17 @@ public class GridTab implements DataStatusListener, Evaluatee, Serializable
 	public boolean dataNew (boolean copy)
 	{
 		if (log.isLoggable(Level.FINE)) log.fine("#" + m_vo.TabNo);
-		if (!isInsertRecord())
+		// For copy operation, check both static and dynamic readonly
+		// If tab is readonly (static or dynamic), copy is not allowed
+		if (copy && isReadOnly())
+		{
+			log.warning ("Copy Not allowed - Tab is readonly, TabNo=" + m_vo.TabNo);
+			return false;
+		}
+		// Check insert permission: only static readonly (IsReadOnly) blocks insert, not ReadOnlyLogic
+		// Use the same logic as UI to ensure consistency
+		boolean insertRecord = !m_vo.IsReadOnly && m_vo.IsInsertRecord;
+		if (!insertRecord)
 		{
 			log.warning ("Insert Not allowed in TabNo=" + m_vo.TabNo);
 			return false;

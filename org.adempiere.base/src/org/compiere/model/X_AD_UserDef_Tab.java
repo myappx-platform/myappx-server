@@ -397,6 +397,29 @@ public class X_AD_UserDef_Tab extends PO implements I_AD_UserDef_Tab, I_Persiste
 		return false;
 	}
 
+	/** IsInsertRecord AD_Reference_ID=319 */
+	public static final int ISINSERTRECORD_AD_Reference_ID=319;
+	/** No = N */
+	public static final String ISINSERTRECORD_No = "N";
+	/** Yes = Y */
+	public static final String ISINSERTRECORD_Yes = "Y";
+	/** Set Insert Record.
+		@param IsInsertRecord The user can insert a new Record
+	*/
+	public void setIsInsertRecord (String IsInsertRecord)
+	{
+
+		set_Value (COLUMNNAME_IsInsertRecord, IsInsertRecord);
+	}
+
+	/** Get Insert Record.
+		@return The user can insert a new Record
+	  */
+	public String getIsInsertRecord()
+	{
+		return (String)get_Value(COLUMNNAME_IsInsertRecord);
+	}
+
 	/** IsReadOnly AD_Reference_ID=319 */
 	public static final int ISREADONLY_AD_Reference_ID=319;
 	/** No = N */

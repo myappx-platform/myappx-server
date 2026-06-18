@@ -9,5 +9,5 @@ Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Import-Package: org.eclipse.equinox.events;version="1.0.0",
  org.osgi.framework,
- org.osgi.service.event;version="1.2.0"
+ org.osgi.service.event
 Service-Component: OSGI-INF/event.xml

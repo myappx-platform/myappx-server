@@ -10,9 +10,11 @@ Export-Package: org.adempiere.process.rpl,
  org.adempiere.process.rpl.exp,
  org.adempiere.process.rpl.imp
 Import-Package: javax.jms;version="1.1.0",
+ javax.xml.transform,
  org.apache.activemq;version="5.16.7",
  org.osgi.framework;version="1.10.0",
- org.osgi.service.component.annotations;version="1.5.0"
+ org.osgi.service.component.annotations,
+ org.w3c.dom
 Bundle-ClassPath: .
 Automatic-Module-Name: org.adempiere.replication
 Bundle-Vendor: iDempiere Community

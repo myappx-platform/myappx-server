@@ -56,7 +56,7 @@ public class PipoDictionaryService implements IDictionaryService {
 			Trx.get(trxName, true).setDisplayName(getClass().getName()+"_merge");
 			packIn = new PackIn();
 			//external files must not start with "2Pack" prefix in order to work correctly
-			if ("org.adempiere.pipo".equals(symbolicName)  &&  !packageFile.getName().startsWith("2Pack"))  
+			if (("org.adempiere.pipo".equals(symbolicName)  &&  !packageFile.getName().startsWith("2Pack")) || packageFile.getName().startsWith("9999"))  
 				packIn.setPackageName(packageFile.getName());
 			else
 				packIn.setPackageName(symbolicName);

@@ -249,6 +249,19 @@ public interface I_AD_UserDef_Tab
 	  */
 	public boolean isMultiRowOnly();
 
+    /** Column name IsInsertRecord */
+    public static final String COLUMNNAME_IsInsertRecord = "IsInsertRecord";
+
+	/** Set Insert Record.
+	  * The user can insert a new Record
+	  */
+	public void setIsInsertRecord (String IsInsertRecord);
+
+	/** Get Insert Record.
+	  * The user can insert a new Record
+	  */
+	public String getIsInsertRecord();
+
     /** Column name IsReadOnly */
     public static final String COLUMNNAME_IsReadOnly = "IsReadOnly";
 

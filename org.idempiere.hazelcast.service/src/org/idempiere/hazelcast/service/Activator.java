@@ -64,6 +64,14 @@ public class Activator {
 	@Activate
 	public void activate(BundleContext bundleContext) throws Exception {
 		Activator.context = bundleContext;
+		
+	    // Enabling XXE protection failed. The attribute http://javax.xml.XMLConstants/property/accessExternalDTD is not supported by the TransformerFactory. 
+        // This usually mean an outdated XML processor is present on the classpath (e.g. Xerces, Xalan). 
+        // If you are not able to resolve the issue by fixing the classpath, the hazelcast.ignoreXxeProtectionFailures system property can be used to disable XML External Entity protections. 
+        // We don't recommend disabling the XXE as such the XML processor configuration is unsecure!!!
+        // java.lang.IllegalArgumentException: Not supported: http://javax.xml.XMLConstants/property/accessExternalDTD
+        System.setProperty("hazelcast.ignoreXxeProtectionFailures", "true");
+		
 		createHazelCastInstance();
 		consoleRegistration = bundleContext.registerService(CommandProvider.class, new CacheConsoleProvider(), null);
 		logger.log(Level.INFO, "org.idempiere.hazelcast.service activated as the distributed backend provider");

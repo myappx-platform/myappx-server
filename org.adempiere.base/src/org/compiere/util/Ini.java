@@ -73,7 +73,7 @@ public final class Ini implements Serializable
 	private static final boolean DEFAULT_STORE_PWD = false;
 	/** Trace Level			*/
 	public static final String	P_TRACELEVEL = 		"TraceLevel";
-	private static final String DEFAULT_TRACELEVEL = "WARNING";
+	private static final String DEFAULT_TRACELEVEL = "INFO";
 	/** Trace to File		*/
 	public static final String	P_TRACEFILE = 		"TraceFile";
 	private static final boolean DEFAULT_TRACEFILE = false;

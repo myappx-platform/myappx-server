@@ -400,6 +400,186 @@ public final class MSetup
 		log.info("fini");
 		return true;
 	}   //  createClient
+	
+	/**
+	 *  Create Client Info. <br/>
+	 *  - Client, Trees, Org, Role, User, User_Role
+	 */
+	public boolean createClient4x (String clientName, String orgValue, String orgName,
+		String roleAdmin, String userAdmin, String supportEMail, String adminEmail)
+	{
+		log.info(clientName);
+		m_trx.setDisplayName(TRX_DISPLAYNAME);
+		m_trx.start();
+		
+		//  info header
+		m_info = new StringBuffer();
+
+		/**
+		 *  Create Client
+		 */
+		m_clientName = clientName;
+		m_client = new MClient(m_ctx, 0, true, m_trx.getTrxName());
+		m_client.setValue(m_clientName);
+		if (MSystem.isUseLoginPrefix())
+			m_client.setLoginPrefix(m_clientName);
+		m_client.setName(m_clientName);
+		if (!m_client.save())
+		{
+			String err = "Tenant NOT created";
+			log.log(Level.SEVERE, err);
+			m_info.append(err);
+			m_trx.rollback();
+			m_trx.close();
+			return false;
+		}
+		int AD_Client_ID = m_client.getAD_Client_ID();
+		Env.setContext(m_ctx, m_WindowNo, "AD_Client_ID", AD_Client_ID);
+		Env.setContext(m_ctx, Env.AD_CLIENT_ID, AD_Client_ID);
+
+		//	Standard Values
+		m_stdValues = String.valueOf(AD_Client_ID) + ",0,'Y',getDate(),0,getDate(),0";
+		//  Info - Client
+		m_info.append(Msg.translate(m_lang, "AD_Client_ID")).append("=").append(clientName).append("\n");
+
+		//	Setup Sequences
+		if (!MSequence.checkClientSequences (m_ctx, AD_Client_ID, m_trx.getTrxName()))
+		{
+			String err = "Sequences NOT created";
+			log.log(Level.SEVERE, err);
+			m_info.append(err);
+			m_trx.rollback();
+			m_trx.close();
+			return false;
+		}
+		
+		//  Trees and Client Info
+		if (!m_client.setupClientInfo(m_lang))
+		{
+			String err = "Tenant Info NOT created";
+			log.log(Level.SEVERE, err);
+			m_info.append(err);
+			m_trx.rollback();
+			m_trx.close();
+			return false;
+		}
+
+		/**
+		 *  Create Org
+		 */
+		m_org = new MOrg (m_client, orgValue, orgName);
+		if (!m_org.save())
+		{
+			String err = "Organization NOT created";
+			log.log(Level.SEVERE, err);
+			m_info.append(err);
+			m_trx.rollback();
+			m_trx.close();
+			return false;
+		}
+		Env.setContext(m_ctx, m_WindowNo, "AD_Org_ID", getAD_Org_ID());
+		Env.setContext(m_ctx, Env.AD_ORG_ID, getAD_Org_ID());
+		//  Info
+		m_info.append(Msg.translate(m_lang, "AD_Org_ID")).append("=").append(orgName).append("\n");
+		
+		// Set Organization Phone, Fax, SupportMail
+		MOrgInfo orgInfo = MOrgInfo.getCopy(m_ctx, getAD_Org_ID(), m_trx.getTrxName());
+		orgInfo.setDUNS("?");
+		orgInfo.setTaxID("?");
+		orgInfo.setEMail(supportEMail);
+		if (!orgInfo.save())
+		{
+			String err = "Organization Info NOT Updated";
+			log.log(Level.SEVERE, err);
+			m_info.append(err);
+			m_trx.rollback();
+			m_trx.close();
+			return false;
+		}
+		
+		/**
+		 *  Create Roles
+		 *  - Admins
+		 */
+		MRole adminRole = new MRole(m_ctx, 0, m_trx.getTrxName());
+		adminRole.setClientOrg(m_client);
+		adminRole.setName(roleAdmin);
+		adminRole.setUserLevel(MRole.USERLEVEL_ClientPlusOrganization);
+		adminRole.setPreferenceType(MRole.PREFERENCETYPE_Client);
+		adminRole.setIsShowAcct(false);
+		adminRole.setIsAccessAdvanced(true);
+		adminRole.setIsClientAdministrator(true);
+		if (!adminRole.save())
+		{
+			String err = "Admin Role NOT inserted";
+			log.log(Level.SEVERE, err);
+			m_info.append(err);
+			m_trx.rollback();
+			m_trx.close();
+			return false;
+		}
+		//	OrgAccess x, 0
+		MRoleOrgAccess adminClientAccess = new MRoleOrgAccess (adminRole, 0);
+		if (!adminClientAccess.save())
+			log.log(Level.SEVERE, "Admin Role_OrgAccess 0 NOT created");
+		//  OrgAccess x,y
+		MRoleOrgAccess adminOrgAccess = new MRoleOrgAccess (adminRole, m_org.getAD_Org_ID());
+		if (!adminOrgAccess.save())
+			log.log(Level.SEVERE, "Admin Role_OrgAccess NOT created");
+		
+		//  Info - Admin Role
+		m_info.append(Msg.translate(m_lang, "AD_Role_ID")).append("=").append(roleAdmin).append("\n");
+
+		/**
+		 *  Create Users
+		 *  - Admin
+		 */
+		MUser adminUser = new MUser(m_ctx, 0, m_trx.getTrxName());
+		adminUser.setPassword(clientName);
+		adminUser.setDescription(userAdmin);
+		adminUser.setName(userAdmin);
+		adminUser.set_ValueNoCheck(I_AD_User.COLUMNNAME_AD_Client_ID, Integer.valueOf(AD_Client_ID));
+		adminUser.setAD_Org_ID(0);
+		adminUser.setEMail(adminEmail);
+
+		try {
+			adminUser.saveEx();
+		} catch (AdempiereException ex) {
+			String err = "Admin User NOT inserted - " + userAdmin;
+			log.log(Level.SEVERE, err);
+			m_info.append(err);
+			m_trx.rollback();
+			m_trx.close();
+			return false;
+		}
+
+		AD_User_ID = adminUser.getAD_User_ID();
+
+		//  Info
+		m_info.append(Msg.translate(m_lang, "AD_User_ID")).append("=").append(userAdmin).append("\n");
+
+		/**
+		 *  Create User-Role for Admin
+		 */
+		String sql = "INSERT INTO AD_User_Roles(" + m_stdColumns + ",AD_User_ID,AD_Role_ID,AD_User_Roles_UU)"
+			+ " VALUES (" + m_stdValues + "," + AD_User_ID + "," + adminRole.getAD_Role_ID() + "," + DB.TO_STRING(Util.generateUUIDv7().toString()) + ")";
+		int no = DB.executeUpdateEx(sql, m_trx.getTrxName());
+		if (no != 1)
+			log.log(Level.SEVERE, "UserRole Admin NOT inserted");
+		
+		//	Processors
+		MAcctProcessor ap = new MAcctProcessor(m_client, AD_User_ID);
+		ap.setAD_Schedule_ID(SCHEDULE_10_MINUTES);
+		ap.saveEx();
+		
+		MRequestProcessor rp = new MRequestProcessor (m_client, AD_User_ID);
+		rp.setAD_Schedule_ID(SCHEDULE_15_MINUTES);
+		rp.saveEx();
+		
+		log.info("fini");
+		return true;
+	}   //  createClient
+
 
 	/** 
 	 * preserving backward compatibility with swing client
@@ -1013,6 +1193,50 @@ public final class MSetup
 	            if (log.isLoggable(Level.INFO)) log.info("Dry run - skipping commit");
 	            return true;
 	        }
+	        
+	        boolean success = m_trx.commit();
+	        m_trx.close();
+	        if (log.isLoggable(Level.INFO)) log.info("Entity setup completed");
+	        return success;
+	        
+		} catch (Exception e) {
+	        String err = "Entity setup failed: " + e.getMessage();
+	        log.log(Level.SEVERE, err, e);
+	        m_info.append(err);
+	        m_trx.rollback();
+	        m_trx.close();
+	        return false;
+	    }
+	}   //  createEntities
+	
+
+	/**
+	 *  <pre>
+	 *  Create default main entities.
+	 *  </pre>
+	 *  @param C_Country_ID country
+	 *  @param City city
+	 *  @param C_Region_ID region
+	 *  @param postal
+	 *  @param address1
+	 *  @return true if created
+	 */
+	public boolean createEntities4x (int C_Country_ID, String City, int C_Region_ID, String postal, String address1)
+	{
+	    boolean hasAccounting = (C_AcctSchema_ID > 0);
+	    if (!hasAccounting) {
+	    	if (log.isLoggable(Level.INFO)) log.info("No accounting schema - entities will be created without accounting links");
+	    }
+
+		if (log.isLoggable(Level.INFO)) log.info("C_Country_ID=" + C_Country_ID 
+			+ ", City=" + City + ", C_Region_ID=" + C_Region_ID);
+		m_info.append("\n----\n");
+		
+		try {
+	        // Create warehouse and location setup
+//	        if (!createWarehouseSetup(C_Country_ID, City, C_Region_ID, postal, address1)) {
+//	            return false;
+//	        }
 	        
 	        boolean success = m_trx.commit();
 	        m_trx.close();
@@ -1924,4 +2148,3 @@ public final class MSetup
 	    }
 	}
 }   //  MSetup
-

@@ -568,7 +568,58 @@ public final class Msg
 		if (retStr != null)
 			return retStr;
 
-		//	Check AD_Element
+		//	Check tenant level element first if enabled
+		if (MSysConfig.getBooleanValue(MSysConfig.ELEMENTS_AT_TENANT_LEVEL, false, Env.getAD_Client_ID(Env.getCtx()))) {
+			PreparedStatement pstmt = null;
+			ResultSet rs = null;
+			try
+			{
+				int AD_Client_ID = Env.getAD_Client_ID(Env.getCtx());
+				StringBuilder sql = new StringBuilder("SELECT")
+						.append(isPrintName ? " t.PrintName, t.PO_PrintName" : " t.Name, t.PO_Name")
+						.append(" FROM AD_Element_Trl t, AD_Element e")
+						.append(" WHERE t.AD_Element_ID=e.AD_Element_ID AND UPPER(e.ColumnName)=?")
+						.append(" AND t.AD_Client_ID=?");
+				if (AD_Language != null && AD_Language.length() > 0) {
+					sql.append(" AND t.AD_Language=?");
+				}
+				pstmt = DB.prepareStatement(sql.toString(), null);
+				pstmt.setString(1, ColumnName.toUpperCase());
+				pstmt.setInt(2, AD_Client_ID);
+				if (AD_Language != null && AD_Language.length() > 0) {
+					pstmt.setString(3, AD_Language);
+				}
+
+				rs = pstmt.executeQuery();
+				if (rs.next())
+				{
+					retStr = rs.getString(1);
+					if (!isSOTrx)
+					{
+						String temp = rs.getString(2);
+						if (temp != null && temp.length() > 0)
+							retStr = temp;
+					}
+					if (retStr != null && retStr.trim().length() > 0)
+					{
+						retStr = retStr.trim();
+						cache.put(key, retStr);
+						return retStr;
+					}
+				}
+			}
+			catch (SQLException e)
+			{
+				s_log.log(Level.SEVERE, "getElement (tenant level)", e);
+			}
+			finally
+			{
+				DB.close(rs, pstmt);
+				rs = null; pstmt = null;
+			}
+		}
+
+		//	Check AD_Element (system level)
 		PreparedStatement pstmt = null;
 		ResultSet rs = null;
 		try
@@ -585,7 +636,8 @@ public final class Msg
 						.append(isPrintName ? " t.PrintName, t.PO_PrintName" : " t.Name, t.PO_Name")
 						.append(" FROM AD_Element_Trl t, AD_Element e")
 						.append(" WHERE t.AD_Element_ID=e.AD_Element_ID AND UPPER(e.ColumnName)=?")
-						.append(" AND t.AD_Language=?");
+						.append(" AND t.AD_Language=?")
+						.append(" AND t.AD_Client_ID = 0"); // load only translated elements at System level
 				pstmt = DB.prepareStatement(sql.toString(), null);
 				pstmt.setString(2, AD_Language);
 			}

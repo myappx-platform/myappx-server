@@ -2106,7 +2106,7 @@ public final class MRole extends X_AD_Role implements ImmutablePOSupport
 			if (tableName.length() == 0)
 				tableName = ti[0].getTableName();
 		}
-		if (TableNameIn != null && !tableName.equals(TableNameIn))
+		if (TableNameIn != null && !tableName.equalsIgnoreCase(TableNameIn))
 		{
 			String msg = "TableName not correctly parsed - TableNameIn=" 
 				+ TableNameIn + " - " + asp;
@@ -2571,13 +2571,72 @@ public final class MRole extends X_AD_Role implements ImmutablePOSupport
 			}
 		}
 
-		for (MTableValRule tvr : MTableValRule.get(p_ctx, AD_Table_ID, Env.getAD_Client_ID(p_ctx), Env.getAD_Role_ID(p_ctx), Env.getAD_User_ID(p_ctx))) {
-			if (sb.length() > 0)
-				sb.append(" AND ");
-			String wherevr = Env.parseContext(p_ctx, 0, tvr.getCode(), false);
-			if (! Util.isEmpty(alias) && ! alias.equals(tableName))
-				wherevr = wherevr.replaceAll("\\b" + tableName + "\\b", alias);
-			sb.append(" (").append(wherevr).append(") ");
+		// Get rules sorted by priority (most specific first)
+		// Priority: User-specific > Role-specific > General (empty Role/User)
+		// Also merge System Level default Role (empty Role) rules with Tenant Level Role rules
+		int AD_Client_ID = Env.getAD_Client_ID(p_ctx);
+		List<MTableValRule> rules = MTableValRule.get(p_ctx, AD_Table_ID, AD_Client_ID, Env.getAD_Role_ID(p_ctx), Env.getAD_User_ID(p_ctx));
+		if (rules != null && !rules.isEmpty()) {
+			// Find System Level default Role rule (AD_Client_ID=0, AD_Role_ID=NULL, AD_User_ID=NULL)
+			MTableValRule systemDefaultRule = null;
+			// Find Tenant Level rules (AD_Client_ID=current, matching Role/User)
+			List<MTableValRule> tenantRules = new ArrayList<MTableValRule>();
+			
+			for (MTableValRule rule : rules) {
+				if (rule.getAD_Client_ID() == 0 && rule.getAD_Role_ID() == 0 && rule.getAD_User_ID() == 0) {
+					// System Level default Role rule
+					systemDefaultRule = rule;
+				} else if (rule.getAD_Client_ID() == AD_Client_ID) {
+					// Tenant Level rule
+					tenantRules.add(rule);
+				}
+			}
+			
+			// Apply rules: merge System Level default Role rule with Tenant Level rules
+			// System Level default Role rule always merges with all Tenant Level rules
+			List<MTableValRule> rulesToApply = new ArrayList<MTableValRule>();
+			
+			// Always add System Level default rule (if exists) as base rule
+			if (systemDefaultRule != null) {
+				rulesToApply.add(systemDefaultRule);
+			}
+			
+			// Add Tenant Level rules (sorted by priority: User-specific > Role-specific > General)
+			// Sort tenant rules by priority
+			Collections.sort(tenantRules, new java.util.Comparator<MTableValRule>() {
+				@Override
+				public int compare(MTableValRule o1, MTableValRule o2) {
+					int p1 = o1.getAD_User_ID() > 0 ? 1 : (o1.getAD_Role_ID() > 0 ? 2 : 3);
+					int p2 = o2.getAD_User_ID() > 0 ? 1 : (o2.getAD_Role_ID() > 0 ? 2 : 3);
+					return p1 - p2;
+				}
+			});
+			
+			// Add the most specific Tenant Level rule (if any)
+			if (!tenantRules.isEmpty()) {
+				rulesToApply.add(tenantRules.get(0));
+			}
+			
+			// Merge all rules with AND logic
+			if (!rulesToApply.isEmpty()) {
+				StringBuilder ruleSb = new StringBuilder();
+				for (MTableValRule tvr : rulesToApply) {
+					String wherevr = Env.parseContext(p_ctx, 0, tvr.getCode(), false);
+					if (!Util.isEmpty(wherevr)) {
+						if (!Util.isEmpty(alias) && !alias.equals(tableName))
+							wherevr = wherevr.replaceAll("\\b" + tableName + "\\b", alias);
+						if (ruleSb.length() > 0)
+							ruleSb.append(" AND ");
+						ruleSb.append("(").append(wherevr).append(")");
+					}
+				}
+				
+				if (ruleSb.length() > 0) {
+					if (sb.length() > 0)
+						sb.append(" AND ");
+					sb.append(" (").append(ruleSb.toString()).append(") ");
+				}
+			}
 		}
 
 		//

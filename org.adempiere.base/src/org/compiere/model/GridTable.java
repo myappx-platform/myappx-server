@@ -2052,12 +2052,14 @@ public class GridTable extends AbstractTableModel
 	public boolean dataNew (int currentRow, boolean copyCurrent)
 	{
 		if (log.isLoggable(Level.INFO)) log.info("Current=" + currentRow + ", Copy=" + copyCurrent);
-		//  Read only
-		if (m_readOnly)
-		{
-			fireDataStatusEEvent("AccessCannotInsert", "", true);
-			return false;
-		}
+		//  Read only check removed - permission is checked in GridTab.dataNew() which uses correct logic
+		//  (only static readonly blocks insert, not dynamic readonly logic)
+		//  This ensures consistency between UI, GridTab and GridTable permission checks
+		//  if (m_readOnly)
+		//  {
+		//      fireDataStatusEEvent("AccessCannotInsert", "", true);
+		//      return false;
+		//  }
 
 		//  see if we need to save
 		dataSave(-2, false);

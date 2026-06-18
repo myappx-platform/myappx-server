@@ -15,7 +15,7 @@ Import-Package: javax.mail;version="1.6.0",
  javax.servlet.http;version="4.0.0",
  org.apache.commons.collections.keyvalue;version="3.2.0",
  org.osgi.framework;version="1.10.0",
- org.osgi.service.component.annotations;version="1.5.0"
+ org.osgi.service.component.annotations
 Bundle-ClassPath: .
 Automatic-Module-Name: org.adempiere.base.process
 Bundle-Vendor: iDempiere Community

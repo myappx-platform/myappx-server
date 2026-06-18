@@ -7,7 +7,7 @@ Bundle-Activator: org.idempiere.printformat.editor.Activator
 Bundle-Vendor: TREKGLOBAL
 Import-Package: org.osgi.framework;version="1.10.0",
  org.osgi.service.component;version="1.5.0",
- org.osgi.service.component.annotations;version="1.5.1"
+ org.osgi.service.component.annotations
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-17
 Require-Capability: osgi.ee;filter:="(&(osgi.ee=JavaSE)(version>=17))"
