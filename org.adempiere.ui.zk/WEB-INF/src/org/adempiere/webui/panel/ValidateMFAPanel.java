@@ -185,6 +185,7 @@ public class ValidateMFAPanel extends Window implements EventListener<Event> {
 		td.setDynamicProperty("colspan", "2");
 		Image image = new Image();
 		image.setSrc(ThemeManager.getLargeLogo());
+		image.setVisible(false);
 		td.appendChild(image);
 
 		tr = new Tr();

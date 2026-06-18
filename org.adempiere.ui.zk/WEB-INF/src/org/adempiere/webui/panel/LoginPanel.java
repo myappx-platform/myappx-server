@@ -293,6 +293,7 @@ public class LoginPanel extends Window implements EventListener<Event>
     	td.setDynamicProperty("colspan", "2");
     	Image image = new Image();
         image.setSrc(ThemeManager.getLargeLogo());
+		image.setVisible(false);
         td.appendChild(image);
 
         tr = new Tr();
@@ -474,7 +475,7 @@ public class LoginPanel extends Window implements EventListener<Event>
         Button helpButton = pnlButtons.createButton(ConfirmPanel.A_HELP);
 		helpButton.addEventListener(Events.ON_CLICK, this);
 		helpButton.addSclass(ITheme.LOGIN_BUTTON_CLASS);
-		pnlButtons.addComponentsRight(helpButton);
+		//pnlButtons.addComponentsRight(helpButton);
         
         LayoutUtils.addSclass(ITheme.LOGIN_BOX_FOOTER_PANEL_CLASS, pnlButtons);
         ZKUpdateUtil.setWidth(pnlButtons, null);

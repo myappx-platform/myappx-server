@@ -107,13 +107,16 @@ public class UserPanel implements EventListener<Event>, Composer<Component>
     	}
     	else
     	{
-	    	lblUserNameValue.setValue(getUserName() + "@" + getClientName() + "." + getOrgName()+"/"+this.getRoleName());	    	
+			lblUserNameValue.setValue(getUserName() + " [" + getClientName() + "." + getOrgName()+"/"+this.getRoleName() + "]");
     	}
     	lblUserNameValue.addEventListener(Events.ON_CLICK, this);
 
     	feedback = (LabelImageElement) component.getFellowIfAny("feedback", true);
-    	feedback.setLabel(Msg.getMsg(Env.getCtx(), "Feedback"));
-    	feedback.addEventListener(Events.ON_CLICK, this);
+    	if (feedback != null)
+    	{
+    		feedback.setLabel(Msg.getMsg(Env.getCtx(), "Feedback"));
+    		feedback.addEventListener(Events.ON_CLICK, this);
+    	}
 
     	preference = (LabelImageElement) component.getFellowIfAny("preference", true);
     	preference.setLabel(Msg.getMsg(Env.getCtx(), "Preference"));
@@ -127,24 +130,27 @@ public class UserPanel implements EventListener<Event>, Composer<Component>
     	logout.setLabel(Msg.getMsg(Env.getCtx(),"Logout"));
     	logout.addEventListener(Events.ON_CLICK, this);
     	
-    	feedbackMenu = new Menupopup();
-		
-    	Menuitem mi = new Menuitem(Msg.getMsg(Env.getCtx(), "RequestNew"));
-    	if (ThemeManager.isUseFontIconForImage())
-		    mi.setIconSclass(Icon.getIconSclass(Icon.COMMENT));
-    	else
-    		mi.setImage(ThemeManager.getThemeResource("images/Request16.png"));
-    	mi.setId("CreateRequest");
-    	feedbackMenu.appendChild(mi);
-    	mi.addEventListener(Events.ON_CLICK, this);
-    	mi = new Menuitem(Msg.getMsg(Env.getCtx(), "EMailSupport"));
-    	if (ThemeManager.isUseFontIconForImage())
-    	  mi.setIconSclass(Icon.getIconSclass(Icon.ENVELOPE));
-    	else
-    		mi.setImage(ThemeManager.getThemeResource("images/SendMail16.png"));
-    	mi.setId("EmailSupport");
-    	mi.addEventListener(Events.ON_CLICK, this);
-    	feedbackMenu.appendChild(mi);
+    	if (feedback != null)
+    	{
+    		feedbackMenu = new Menupopup();
+    		
+    		Menuitem mi = new Menuitem(Msg.getMsg(Env.getCtx(), "RequestNew"));
+    		if (ThemeManager.isUseFontIconForImage())
+    		    mi.setIconSclass(Icon.getIconSclass(Icon.COMMENT));
+    		else
+    			mi.setImage(ThemeManager.getThemeResource("images/Request16.png"));
+    		mi.setId("CreateRequest");
+    		feedbackMenu.appendChild(mi);
+    		mi.addEventListener(Events.ON_CLICK, this);
+    		mi = new Menuitem(Msg.getMsg(Env.getCtx(), "EMailSupport"));
+    		if (ThemeManager.isUseFontIconForImage())
+    		  mi.setIconSclass(Icon.getIconSclass(Icon.ENVELOPE));
+    		else
+    			mi.setImage(ThemeManager.getThemeResource("images/SendMail16.png"));
+    		mi.setId("EmailSupport");
+    		mi.addEventListener(Events.ON_CLICK, this);
+    		feedbackMenu.appendChild(mi);
+    	}
     	
     	SessionManager.getSessionApplication().getKeylistener().addEventListener(Events.ON_CTRL_KEY, this);
     	component.addEventListener("onEmailSupport", this);
@@ -274,7 +280,7 @@ public class UserPanel implements EventListener<Event>, Composer<Component>
 			preferencePopup.setPage(component.getPage());
 			LayoutUtils.openPopupWindow(preference, preferencePopup, "after_start");
 		}
-		else if (feedback == event.getTarget())
+		else if (feedback != null && feedback == event.getTarget())
 		{
 			if (isMobile() && userPanelLinksContainer != null)
 			{

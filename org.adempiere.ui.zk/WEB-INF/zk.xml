@@ -103,6 +103,18 @@
 		</name>
 		<value>12px</value>
 	</library-property>	
+	<!-- Configure the font family for titles in ZUL CSS file (norm*.css)
+	Default: Verdana, Tahoma, Arial, Helvetica, sans-serif. -->
+	<library-property>
+		<name>org.zkoss.zul.theme.fontFamilyT</name>
+		<value>'Microsoft Yahei', 'Noto Sans SC', Verdana, Tahoma, Arial, Helvetica, sans-serif</value>
+	</library-property> 
+	<!-- Configure the font family for content in ZUL CSS file (norm*.css)
+	Default: Verdana, Tahoma, Arial, serif. -->
+	<library-property>
+		<name>org.zkoss.zul.theme.fontFamilyC</name>
+		<value>'Microsoft Yahei', 'Noto Sans SC', Verdana, Tahoma, Arial, Helvetica, sans-serif</value>
+	</library-property>
 	<!-- turn off borderlayout animation -->	
 	<library-property>
     	<name>org.zkoss.zul.borderlayout.animation.disabled</name>
@@ -130,7 +142,7 @@
     </library-property>
 	<preference>
     	<name>org.zkoss.zk.ui.WebApp.name</name>
-    	<value>iDempiere</value>
+    	<value>MyAppx</value>
 	</preference>
     <library-property>
         <name>org.zkoss.zk.ui.uuidRecycle.disabled</name>

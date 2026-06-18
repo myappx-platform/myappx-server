@@ -2115,16 +2115,18 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
         boolean changed = e.isChanged() || e.isInserting();
         boolean readOnly = adTabbox.getSelectedGridTab().isReadOnly();
         boolean processed = adTabbox.getSelectedGridTab().isProcessed();
-        boolean insertRecord = !readOnly;
+        // Check insert permission: only static readonly (IsReadOnly) blocks insert, not ReadOnlyLogic
+        // If tab is statically configured as readonly, insert is not allowed even if IsInsertRecord is true
+        // If tab is not statically readonly but ReadOnlyLogic is true, insert is allowed if IsInsertRecord is true
+        boolean insertRecord = !tabPanel.getGridTab().getVO().IsReadOnly && tabPanel.getGridTab().getVO().IsInsertRecord;
+        // For copy operation, check both static and dynamic readonly
+        // If tab is readonly (static or dynamic), copy is not allowed
+        boolean canCopy = insertRecord && !readOnly;
         boolean deleteRecord = !readOnly;
         if (!detailTab)
         {
-	        if (insertRecord)
-	        {
-	            insertRecord = tabPanel.getGridTab().isInsertRecord();
-	        }
 	        toolbar.enableNew(!changed && insertRecord && !tabPanel.getGridTab().isSortTab());
-	        toolbar.enableCopy(!changed && insertRecord && !tabPanel.getGridTab().isSortTab() && adTabbox.getSelectedGridTab().getRowCount()>0);
+	        toolbar.enableCopy(!changed && canCopy && !tabPanel.getGridTab().isSortTab() && adTabbox.getSelectedGridTab().getRowCount()>0);
 	        toolbar.enableRefresh(!changed);
 	        if (deleteRecord)
 	        {
@@ -2469,7 +2471,11 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
      */
     private void onNewCallback(final Callback<Boolean> postCallback)
     {
-        if (!adTabbox.getSelectedGridTab().isInsertRecord())
+        // Check insert permission: only static readonly (IsReadOnly) blocks insert, not ReadOnlyLogic
+        // Use the same logic as UI button to ensure consistency
+        GridTab gridTab = adTabbox.getSelectedGridTab();
+        boolean insertRecord = !gridTab.getVO().IsReadOnly && gridTab.getVO().IsInsertRecord;
+        if (!insertRecord)
         {
             logger.warning("Insert Record disabled for Tab");
             if (postCallback != null)
@@ -2557,7 +2563,20 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
 	 */
     private void onCopyCallback(Callback<Boolean> postCallback)
     {
-        if (!adTabbox.getSelectedGridTab().isInsertRecord())
+        GridTab gridTab = adTabbox.getSelectedGridTab();
+        // For copy operation, check both static and dynamic readonly
+        // If tab is readonly (static or dynamic), copy is not allowed
+        if (gridTab.isReadOnly())
+        {
+            logger.warning("Copy Record disabled - Tab is readonly");
+            if (postCallback != null)
+            	postCallback.onCallback(false);
+            return;
+        }
+        // Check insert permission: only static readonly (IsReadOnly) blocks insert, not ReadOnlyLogic
+        // Use the same logic as UI button to ensure consistency
+        boolean insertRecord = !gridTab.getVO().IsReadOnly && gridTab.getVO().IsInsertRecord;
+        if (!insertRecord)
         {
             logger.warning("Insert Record disabled for Tab");
             if (postCallback != null)

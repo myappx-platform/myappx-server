@@ -35,6 +35,17 @@ import org.zkoss.image.AImage;
  * @author hengsin
  */
 public final class ThemeManager {
+	
+	/**
+	 * @return url for vendor logo
+	 */
+	public static String getVendorLogo() {
+		String theme = getTheme();
+		String def = THEME_PATH_PREFIX+theme+ITheme.VENDOR_LOGO_IMAGE;
+		return def;
+	}
+
+
 	//zk predefined starting path for classpath resources (src/web)
 	public static final String ZK_PREFIX_FOR_CLASSPATH_RESOURCE = "/web";
 	
@@ -71,7 +82,16 @@ public final class ThemeManager {
 			url = MSysConfig.getValue(MSysConfig.WEBUI_LOGOURL, def);
 		return url;
 	}
-
+	
+	/**
+	 * @return url for default poweredby-idempiere logo
+	 */
+	public static String getPoweredByIdempiereLogo() {
+		String theme = getTheme();
+		String def = THEME_PATH_PREFIX+ITheme.ZK_THEME_DEFAULT+ITheme.POWEREDBY_IDEMPIERE_IMAGE;
+		return def;
+	}	
+	
 	/**
 	 * Get name of active theme
 	 * @return name of active theme

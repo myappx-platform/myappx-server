@@ -1,10 +1,10 @@
 {
-  "short_name": "iDempiere",
-  "name": "iDempiere ERP",
+  "short_name": "MyAppx",
+  "name": "MyAppx Platform",
   "icons": [
     {
-      "src": "images/iD192.png",
-      "sizes": "192x192",
+      "src": "images/myappx.png",
+      "sizes": "256x256",
       "type": "image/png"
     }
   ],

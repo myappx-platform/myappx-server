@@ -230,6 +230,7 @@ public class RolePanel extends Window implements EventListener<Event>, Deferrabl
     	td.setDynamicProperty("colspan", "2");
     	Image image = new Image();
         image.setSrc(ThemeManager.getLargeLogo());
+		image.setVisible(false);
         td.appendChild(image);
 
     	tr = new Tr();
@@ -369,7 +370,7 @@ public class RolePanel extends Window implements EventListener<Event>, Deferrabl
         Button helpButton = pnlButtons.createButton(ConfirmPanel.A_HELP);
 		helpButton.addEventListener(Events.ON_CLICK, this);
 		helpButton.addSclass(ITheme.LOGIN_BUTTON_CLASS);
-		pnlButtons.addComponentsRight(helpButton);
+		//pnlButtons.addComponentsRight(helpButton);
 
         LayoutUtils.addSclass(ITheme.LOGIN_BOX_FOOTER_PANEL_CLASS, pnlButtons);
         ZKUpdateUtil.setWidth(pnlButtons, null);
