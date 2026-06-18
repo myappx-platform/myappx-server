@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Orchestrator - Test Client</title>
+    <!-- Added Markdown Support -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #fafafa;
+            color: #333;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #333;
+            color: #fff;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #666;
+        }
+
+        .status-indicator.connected {
+            background: #4caf50;
+            box-shadow: 0 0 4px #4caf50;
+        }
+
+        .login-section {
+            padding: 12px 24px;
+            border-bottom: 1px solid #ddd;
+            background: #f5f5f5;
+            flex-shrink: 0;
+        }
+
+        .login-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-group.flex-grow {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input,
+        select {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            font-size: 13px;
+            background: #fff;
+            height: 32px;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #888;
+        }
+
+        button {
+            padding: 0 16px;
+            background: #333;
+            color: #fff;
+            border: none;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover {
+            background: #555;
+        }
+
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        button.logout-btn {
+            background: #c62828;
+        }
+
+        button.logout-btn:hover {
+            background: #e53935;
+        }
+
+        button.cancel-btn {
+            background: #ff9800;
+        }
+
+        button.cancel-btn:hover {
+            background: #ffa726;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 450px;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            flex-shrink: 0;
+            min-width: 250px;
+            max-width: 800px;
+        }
+
+        .resizer {
+            width: 4px;
+            cursor: col-resize;
+            background: #eee;
+            border-right: 1px solid #ddd;
+            transition: background 0.3s;
+            flex-shrink: 0;
+            z-index: 10;
+            margin-left: -2px;
+        }
+
+        .resizer:hover,
+        .resizer.resizing {
+            background: #0078d4;
+            width: 4px;
+        }
+
+        .conversations {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .section-header {
+            padding: 12px 16px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-header h3 {
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .conversation-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .conversation-item {
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #eee;
+            cursor: pointer;
+            transition: all 0.15s;
+            border-radius: 4px;
+        }
+
+        .conversation-item:hover {
+            background: #f5f5f5;
+            border-color: #ddd;
+        }
+
+        .conversation-item.active {
+            background: #f0f0f0;
+            border-color: #333;
+        }
+
+        .conversation-title {
+            font-weight: 500;
+            font-size: 13px;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conversation-date {
+            font-size: 10px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .debug-panel {
+            height: 40%;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            color: #555;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 11px;
+        }
+
+        .debug-logs {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            border-top: 1px solid #eee;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            line-height: 1.4;
+            border-bottom: 1px solid #f5f5f5;
+            padding-bottom: 2px;
+        }
+
+        .log-entry.error {
+            color: #d32f2f;
+        }
+
+        .log-time {
+            color: #999;
+            margin-right: 8px;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: #fafafa;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-content {
+            max-width: 85%;
+            padding: 12px 16px;
+            line-height: 1.5;
+            font-size: 14px;
+            border-radius: 8px;
+            word-wrap: break-word;
+        }
+
+        /* Markdown Styling */
+        .message-content p {
+            margin-bottom: 10px;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+            background: #fff;
+            font-size: 13px;
+        }
+
+        .message-content th,
+        .message-content td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .message-content th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+
+        .message-content tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        .message-content ul,
+        .message-content ol {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .message-content code {
+            background: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        .message.user .message-content {
+            background: #333;
+            color: #fff;
+            border-bottom-right-radius: 2px;
+        }
+
+        .message.user .message-content code {
+            background: #444;
+            color: #eee;
+        }
+
+        .message.assistant .message-content {
+            background: #fff;
+            color: #333;
+            border: 1px solid #ddd;
+            border-bottom-left-radius: 2px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .message.tool {
+            justify-content: center;
+        }
+
+        .message.tool .message-content {
+            background: #f0f0f0;
+            color: #666;
+            font-size: 12px;
+            max-width: 100%;
+            text-align: center;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .input-container {
+            padding: 16px 24px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 12px;
+            background: #fff;
+            align-items: center;
+        }
+
+        #messageInput {
+            flex: 1;
+            height: 40px;
+            padding: 0 16px;
+            border-radius: 20px;
+            border: 1px solid #ddd;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .user-info-bar {
+            padding: 8px 24px;
+            background: #e8f5e9;
+            border-bottom: 1px solid #c8e6c9;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .user-details {
+            font-size: 12px;
+            color: #2e7d32;
+        }
+
+        .config-bar {
+            padding: 8px 24px;
+            background: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            display: none;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .loading-dots:after {
+            content: ' .';
+            animation: dots 1s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+
+            0%,
+            20% {
+                content: ' .';
+            }
+
+            40% {
+                content: ' ..';
+            }
+
+            60% {
+                content: ' ...';
+            }
+
+            80%,
+            100% {
+                content: '';
+            }
+        }
+
+        /* Responsive Adjustments */
+        .mobile-warning {
+            display: none;
+            padding: 20px;
+            background: #fff3e0;
+            color: #e65100;
+            text-align: center;
+            font-size: 14px;
+            border-bottom: 1px solid #ffe0b2;
+        }
+
+        @media (max-width: 768px) {
+            .login-grid {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .form-group.flex-grow {
+                flex: none;
+            }
+
+            .sidebar {
+                display: none;
+                /* Hide sidebar on mobile to prioritize chat */
+            }
+
+            .resizer {
+                display: none;
+            }
+
+            .mobile-warning {
+                display: block;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="mobile-warning">
+        <strong>Note:</strong> This tool is optimized for larger screens. Some features like history and console are
+        hidden on mobile.
+    </div>
+    <div class="header">
+        <h1>AI Orchestrator</h1>
+        <div class="status">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <span id="statusText">Not logged in</span>
+        </div>
+    </div>
+
+    <!-- Login Section -->
+    <div class="login-section" id="loginSection">
+        <div class="login-grid">
+            <div class="form-group flex-grow">
+                <label for="serverUrl">Server URL</label>
+                <input type="text" id="serverUrl" value="http://localhost:8080" />
+            </div>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" value="GardenAdmin" />
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" onkeypress="if(event.key==='Enter') login()" />
+            </div>
+            <div class="form-group">
+                <label for="clientId">Client ID</label>
+                <input type="number" id="clientId" value="11" style="width: 60px;" />
+            </div>
+            <div class="form-group">
+                <label for="roleId">Role ID</label>
+                <input type="number" id="roleId" value="102" style="width: 70px;" />
+            </div>
+            <div class="form-group">
+                <label for="orgId">Org ID</label>
+                <input type="number" id="orgId" value="11" style="width: 60px;" />
+            </div>
+            <button onclick="login()" id="loginBtn">Login</button>
+        </div>
+    </div>
+
+    <!-- User Info Bar -->
+    <div class="user-info-bar" id="userInfoBar">
+        <div class="user-details">
+            Logged in as <strong id="loggedUserName">-</strong> |
+            Client: <strong id="loggedClientId">-</strong> |
+            Role: <strong id="loggedRoleId">-</strong> |
+            Org: <strong id="loggedOrgId">-</strong>
+        </div>
+        <button onclick="logout()" class="logout-btn">Logout</button>
+    </div>
+
+    <!-- Config Section -->
+    <div class="config-bar" id="configSection">
+        <button onclick="connect()" id="connectBtn">Connect SSE</button>
+        <button onclick="disconnect()" id="disconnectBtn" disabled>Disconnect</button>
+        <button onclick="loadConversations()" id="loadConvBtn" disabled>Refresh List</button>
+        <button onclick="createNewConversation()" id="newConvBtn" disabled>+ New Conversation</button>
+    </div>
+
+    <div class="main-content">
+        <div class="sidebar" id="sidebar">
+            <div class="conversations" id="conversationsPanel">
+                <div class="section-header">
+                    <h3>Conversations</h3>
+                </div>
+                <div class="conversation-list" id="conversationList"></div>
+            </div>
+
+            <div class="debug-panel">
+                <div class="section-header">
+                    <h3>Console Log</h3>
+                </div>
+                <div class="debug-logs" id="debugLogs"></div>
+            </div>
+        </div>
+
+        <div class="resizer" id="resizer"></div>
+
+        <div class="chat-area">
+            <div class="messages" id="messages"></div>
+            <div class="input-container">
+                <input type="text" id="messageInput" placeholder="Login first to start chatting..." disabled
+                    onkeypress="if(event.key==='Enter') sendMessage()" />
+                <div class="action-buttons">
+                    <button onclick="sendMessage()" id="sendBtn" disabled>Send</button>
+                    <button onclick="cancelRequest()" id="cancelBtn" class="cancel-btn" disabled>Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let sessionId = null;
+        let postEndpoint = null;
+        let currentConversationId = null;
+        let conversations = [];
+        let jwtToken = null;
+        let isWaitingForResponse = false;
+        let currentAssistantText = ""; // Full text of current streaming response
+
+        let userContext = {
+            userId: null,
+            userName: null,
+            clientId: null,
+            roleId: null,
+            orgId: null
+        };
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('debugLogs');
+            if (logsDiv) {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry' + (type === 'error' ? ' error' : '');
+                const time = new Date().toLocaleTimeString();
+                entry.innerHTML = `<span class="log-time">[${time}]</span>${message}`;
+                logsDiv.appendChild(entry);
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            }
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function updateStatus(connected) {
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const loadConvBtn = document.getElementById('loadConvBtn');
+            const newConvBtn = document.getElementById('newConvBtn');
+            const messageInput = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+
+            if (connected) {
+                indicator.classList.add('connected');
+                text.textContent = `Connected`;
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                loadConvBtn.disabled = false;
+                newConvBtn.disabled = false;
+                messageInput.disabled = false;
+                messageInput.placeholder = 'Type your message...';
+                sendBtn.disabled = false;
+            } else {
+                indicator.classList.remove('connected');
+                text.textContent = jwtToken ? 'Logged in' : 'Not logged in';
+                connectBtn.disabled = !jwtToken;
+                disconnectBtn.disabled = true;
+                loadConvBtn.disabled = true;
+                newConvBtn.disabled = true;
+                messageInput.disabled = true;
+                messageInput.placeholder = jwtToken ? 'Connect to SSE to start chatting...' : 'Login first to start chatting...';
+                sendBtn.disabled = true;
+            }
+        }
+
+        function addMessage(role, content, type = 'text') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+
+            if (type === 'tool') {
+                contentDiv.textContent = `[Tool] ${content}`;
+            } else {
+                // Use marked to parse Markdown
+                contentDiv.innerHTML = marked.parse(content);
+            }
+
+            messageDiv.appendChild(contentDiv);
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        let lastAssistantMessage = null;
+
+        function appendToLastMessage(text) {
+            const messagesDiv = document.getElementById('messages');
+
+            if (!lastAssistantMessage) {
+                lastAssistantMessage = document.createElement('div');
+                lastAssistantMessage.className = 'message assistant';
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
+                lastAssistantMessage.appendChild(contentDiv);
+                messagesDiv.appendChild(lastAssistantMessage);
+                currentAssistantText = "";
+            }
+
+            currentAssistantText += text;
+            const contentDiv = lastAssistantMessage.querySelector('.message-content');
+            // Parse full text on every chunk for streaming feel
+            contentDiv.innerHTML = marked.parse(currentAssistantText);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function login() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const clientId = parseInt(document.getElementById('clientId').value);
+            const roleId = parseInt(document.getElementById('roleId').value);
+            const orgId = parseInt(document.getElementById('orgId').value);
+
+            if (!username || !password) {
+                alert('Please enter username and password');
+                return;
+            }
+
+            const loginBtn = document.getElementById('loginBtn');
+            loginBtn.disabled = true;
+            loginBtn.textContent = '...';
+
+            try {
+                log('Attempting login...');
+
+                const response = await fetch(`${serverUrl}/api/v1/auth/tokens`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userName: username,
+                        password: password,
+                        parameters: {
+                            clientId: clientId,
+                            roleId: roleId,
+                            organizationId: orgId
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Login failed: ${response.status}`);
+                }
+
+                const data = await response.json();
+                jwtToken = data.token;
+                userContext = {
+                    userId: data.userId,
+                    userName: username,
+                    clientId: data.clientId || clientId,
+                    roleId: data.roleId || roleId,
+                    orgId: data.organizationId || orgId
+                };
+
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('userInfoBar').style.display = 'flex';
+                document.getElementById('configSection').style.display = 'flex';
+
+                document.getElementById('loggedUserName').textContent = username;
+                document.getElementById('loggedClientId').textContent = userContext.clientId;
+                document.getElementById('loggedRoleId').textContent = userContext.roleId;
+                document.getElementById('loggedOrgId').textContent = userContext.orgId;
+
+                updateStatus(false);
+                log(`Login successful! User: ${username}`);
+                connect();
+            } catch (error) {
+                log(`Login error: ${error.message}`, 'error');
+                alert('Login failed: ' + error.message);
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+            }
+        }
+
+        function logout() {
+            if (eventSource) disconnect();
+            jwtToken = null;
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('userInfoBar').style.display = 'none';
+            document.getElementById('configSection').style.display = 'none';
+            document.getElementById('messages').innerHTML = '';
+            document.getElementById('conversationList').innerHTML = '';
+            updateStatus(false);
+            log('Logged out');
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            if (!jwtToken) return;
+
+            log('Connecting to SSE...');
+            const url = `${serverUrl}/ai/sse?token=${encodeURIComponent(jwtToken)}`;
+            eventSource = new EventSource(url);
+
+            eventSource.addEventListener('endpoint', (event) => {
+                const relativePath = event.data;
+                postEndpoint = `${serverUrl}${relativePath}`;
+                const urlObj = new URL(postEndpoint);
+                sessionId = urlObj.searchParams.get('sessionId');
+                log(`Connected! Session: ${sessionId.substring(0, 8)}`);
+                updateStatus(true);
+                loadConversations();
+            });
+
+            eventSource.addEventListener('message', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'text') {
+                        appendToLastMessage(data.content);
+                    } else if (data.type === 'tool') {
+                        addMessage('tool', `Executing: ${data.toolName}`, 'tool');
+                    } else if (data.type === 'complete') {
+                        finishResponse();
+                    } else if (data.type === 'error') {
+                        addMessage('assistant', `Error: ${data.message}`);
+                        finishResponse();
+                    }
+                } catch (e) { log(`Msg Error: ${e.message}`, 'error'); }
+            });
+
+            eventSource.addEventListener('complete', () => {
+                log('Response complete');
+                finishResponse();
+            });
+
+            eventSource.addEventListener('error', (e) => {
+                if (e.data) {
+                    try {
+                        const data = JSON.parse(e.data);
+                        addMessage('assistant', `Error: ${data.message}`);
+                        finishResponse();
+                    } catch (err) { }
+                }
+            });
+
+            eventSource.onerror = () => {
+                log('SSE Connection lost', 'error');
+                disconnect();
+            };
+        }
+
+        function finishResponse() {
+            isWaitingForResponse = false;
+            lastAssistantMessage = null;
+            currentAssistantText = "";
+            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('cancelBtn').disabled = true;
+        }
+
+        async function cancelRequest() {
+            if (!sessionId || !isWaitingForResponse) return;
+            const serverUrl = document.getElementById('serverUrl').value;
+            try {
+                log('Cancelling...');
+                document.getElementById('cancelBtn').disabled = true;
+                const response = await fetch(`${serverUrl}/ai/cancel?sessionId=${encodeURIComponent(sessionId)}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+                if (response.ok) {
+                    addMessage('tool', 'Cancelled by user', 'tool');
+                    finishResponse();
+                }
+            } catch (error) { log(`Cancel error: ${error.message}`, 'error'); }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            log(`Send button clicked. Message: "${message.substring(0, 20)}${message.length > 20 ? '...' : ''}"`);
+
+            if (!message) {
+                log('Empty message, ignoring.');
+                return;
+            }
+
+            if (!currentConversationId) {
+                log('No conversation selected. Creating a new temporary conversation...');
+                currentConversationId = 'temp-' + crypto.randomUUID();
+            }
+
+            log(`Sending to conversation ID: ${currentConversationId}`);
+
+            // Handle ephemeral
+            if (typeof currentConversationId === 'string' && currentConversationId.startsWith('temp-')) {
+                log('Temporary conversation detected. Starting commit...');
+                await commitConversation(message);
+                input.value = '';
+                return;
+            }
+
+            if (!postEndpoint) {
+                log('Error: postEndpoint not defined. SSE has not provided the post endpoint yet.', 'error');
+                alert('SSE connection has not established the communication channel yet. Please wait or reconnect.');
+                return;
+            }
+
+            addMessage('user', message);
+            input.value = '';
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('cancelBtn').disabled = false;
+            isWaitingForResponse = true;
+            lastAssistantMessage = null;
+            currentAssistantText = "";
+
+            try {
+                log(`Posting to: ${postEndpoint}`);
+                const response = await fetch(postEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ conversationId: currentConversationId, message: message })
+                });
+
+                log(`POST response: ${response.status} ${response.statusText}`);
+                if (response.status !== 202) {
+                    log(`Unexpected status: ${response.status}`, 'error');
+                    finishResponse();
+                }
+            } catch (error) {
+                log(`Error during send fetch: ${error.message}`, 'error');
+                addMessage('assistant', `Error: ${error.message}`);
+                finishResponse();
+            }
+        }
+
+        async function commitConversation(message) {
+            const serverUrl = document.getElementById('serverUrl').value;
+            addMessage('user', message);
+            document.getElementById('sendBtn').disabled = true;
+            try {
+                const response = await fetch(`${serverUrl}/ai/v1/chat/conversations/commit`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ tempId: currentConversationId, userMessage: message })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    const errMsg = data.error || `Server error (${response.status})`;
+                    addMessage('assistant', `Error: ${errMsg} — check iDempiere log for details.`);
+                    log(`Commit failed: ${errMsg}`, 'error');
+                    return;
+                }
+                currentConversationId = data.id || data.conversationId;
+                if (data.content || data.assistantResponse) {
+                    addMessage('assistant', data.content || data.assistantResponse);
+                }
+                await loadConversations();
+                log(`Conversation saved: ${currentConversationId}`);
+            } catch (err) { log(`Save error: ${err.message}`, 'error'); }
+            finally { document.getElementById('sendBtn').disabled = false; }
+        }
+
+        async function loadConversations() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            try {
+                const response = await fetch(`${serverUrl}/ai/v1/chat/conversations?limit=20`, {
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+                if (!response.ok) {
+                    const body = await response.text();
+                    if (response.status === 404) {
+                        log('Chat API /ai/v1/chat/* not found. Rebuild org.idempiere.ai.core and restart the server.', 'error');
+                    } else {
+                        log(`Load conversations failed (${response.status}): ${body.substring(0, 200)}`, 'error');
+                    }
+                    return;
+                }
+                const data = await response.json();
+                conversations = data.conversations || [];
+                const list = document.getElementById('conversationList');
+                list.innerHTML = '';
+
+                if (currentConversationId?.startsWith?.('temp-')) {
+                    const item = createConvItem('(New) Active conversation', 'Waiting for send...', true);
+                    item.onclick = () => selectConversation(currentConversationId);
+                    list.appendChild(item);
+                }
+
+                conversations.forEach(conv => {
+                    const active = conv.id === currentConversationId;
+                    const item = createConvItem(conv.title, new Date(conv.created).toLocaleString(), active);
+                    item.onclick = () => selectConversation(conv.id);
+                    list.appendChild(item);
+                });
+                log(`Loaded ${conversations.length} conversations`);
+            } catch (error) { log(`Load error: ${error.message}`, 'error'); }
+        }
+
+        function createConvItem(title, date, active) {
+            const div = document.createElement('div');
+            div.className = 'conversation-item' + (active ? ' active' : '');
+            div.innerHTML = `<div class="conversation-title">${title}</div><div class="conversation-date">${date}</div>`;
+            return div;
+        }
+
+        function createNewConversation() {
+            currentConversationId = 'temp-' + crypto.randomUUID();
+            document.getElementById('messages').innerHTML = '';
+            if (eventSource) {
+                log('Reconnecting SSE for new conversation context...');
+                eventSource.close();
+                eventSource = null;
+                connect();
+            }
+            loadConversations();
+            log('New ephemeral conversation created');
+        }
+
+        function selectConversation(id) {
+            log(`Starting conversation selection: ${id} (type: ${typeof id})`);
+
+            if (id == currentConversationId) {
+                log('This conversation is already the current one. Ignoring.');
+                return;
+            }
+
+            currentConversationId = id;
+            document.getElementById('messages').innerHTML = '';
+
+            // Update UI list without reloading everything
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
+            }
+
+            log(`Conversation selected: ${id}`);
+
+            // Reconnect SSE to reset context on orchestrator
+            if (eventSource) {
+                log('Reconnecting SSE for new conversation context...');
+                eventSource.close();
+                eventSource = null;
+                connect();
+            }
+
+            // Load history if not temporary
+            const idStr = String(id);
+            if (!idStr.startsWith('temp-')) {
+                loadMessages(id);
+            } else {
+                log('Temporary conversation, no history to load.');
+            }
+        }
+
+        async function loadMessages(conversationId) {
+            log(`Loading messages for conversation ${conversationId}...`);
+            const serverUrl = document.getElementById('serverUrl').value;
+            try {
+                const response = await fetch(`${serverUrl}/ai/v1/chat/conversations/${conversationId}/messages`, {
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load messages: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const messages = data.messages || [];
+                log(`Success: ${messages.length} messages found.`);
+
+                messages.forEach(msg => {
+                    const role = msg.direction === 'U' ? 'user' : 'assistant';
+                    addMessage(role, msg.text);
+                });
+            } catch (error) {
+                log(`Error loading history: ${error.message}`, 'error');
+            }
+        }
+
+        // Sidebar Resizing Logic
+        const sidebar = document.getElementById('sidebar');
+        const resizer = document.getElementById('resizer');
+        let isResizing = false;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            resizer.classList.add('resizing');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none'; // Disable text selection
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            const newWidth = e.clientX;
+            // Safety width limits
+            if (newWidth >= 250 && newWidth <= 800) {
+                sidebar.style.width = newWidth + 'px';
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                resizer.classList.remove('resizing');
+                document.body.style.cursor = 'default';
+                document.body.style.userSelect = 'auto';
+            }
+        });
+    </script>
+</body>
+
+</html>

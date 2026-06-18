@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MyAppx Desktop — 下载与文档</title>
+    <meta name="description" content="MyAppx Desktop 客户端下载、升级说明与帮助文档入口">
+    <style>
+        :root {
+            --bg: #f4f6f8;
+            --surface: #ffffff;
+            --text: #1a1d21;
+            --muted: #5e6672;
+            --accent: #1c58d9;
+            --accent-hover: #1548b8;
+            --accent-soft: #e8efff;
+            --border: #dfe3e8;
+            --success: #0d8050;
+            --warning: #c87a00;
+            --radius: 10px;
+            --shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .page {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 32px 20px 48px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1c58d9 0%, #0f3d99 100%);
+            color: #fff;
+            border-radius: var(--radius);
+            padding: 32px 36px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        header h1 {
+            margin: 0 0 10px;
+            font-size: 1.85rem;
+            font-weight: 600;
+        }
+
+        header .lead {
+            margin: 0;
+            opacity: 0.94;
+            font-size: 1rem;
+            max-width: 640px;
+        }
+
+        .hero-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.18);
+            font-size: 0.85rem;
+        }
+
+        .download-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px 32px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .download-panel .info h2 {
+            margin: 0 0 6px;
+            font-size: 1.2rem;
+        }
+
+        .download-panel .info p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.94rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 22px;
+            border-radius: 8px;
+            font-size: 0.98rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: var(--accent-soft);
+            color: var(--accent);
+            margin-left: 10px;
+        }
+
+        section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px 28px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        section h2 {
+            margin: 0 0 16px;
+            font-size: 1.15rem;
+        }
+
+        section h3 {
+            margin: 18px 0 8px;
+            font-size: 1rem;
+        }
+
+        section h3:first-of-type {
+            margin-top: 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 14px;
+        }
+
+        .card {
+            display: block;
+            padding: 16px 18px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            text-decoration: none;
+            color: inherit;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 2px 8px rgba(28, 88, 217, 0.12);
+        }
+
+        .card .title {
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+
+        .card .desc {
+            font-size: 0.88rem;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        .card.disabled {
+            opacity: 0.65;
+            pointer-events: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        th {
+            background: #f8f9fb;
+            font-weight: 600;
+            color: var(--muted);
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        code, .path {
+            font-family: Consolas, "Courier New", monospace;
+            background: #eef1f4;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.88em;
+            word-break: break-all;
+        }
+
+        ul {
+            margin: 8px 0 0;
+            padding-left: 1.25rem;
+        }
+
+        li + li { margin-top: 6px; }
+
+        .note {
+            background: var(--accent-soft);
+            border-left: 4px solid var(--accent);
+            padding: 12px 14px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 16px;
+            color: #243b6b;
+            font-size: 0.94rem;
+        }
+
+        .note.warn {
+            background: #fff8eb;
+            border-left-color: var(--warning);
+            color: #6b4a00;
+        }
+
+        footer {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        footer a { color: var(--accent); }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 640px) {
+            .two-col { grid-template-columns: 1fr; }
+            .btn-secondary { margin-left: 0; margin-top: 10px; display: inline-block; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header>
+            <h1>MyAppx Desktop</h1>
+            <p class="lead">
+                MyAppx 桌面客户端将 My Workspace 工作区封装为原生 Windows 应用，连接已运行的 MyAppx Server（AppxServer），
+                支持应用内自动更新与内网分发。
+            </p>
+            <div class="hero-meta">
+                <span class="badge">当前版本 6.2.1</span>
+                <span class="badge">Windows x64</span>
+                <span class="badge">由 AppxServer /desktop 提供分发</span>
+            </div>
+        </header>
+
+        <div class="download-panel">
+            <div class="info">
+                <h2>下载最新安装包</h2>
+                <p>
+                    <strong>myappx-desktop-setup-6.2.1-win.exe</strong>
+                    · 约 102 MB · 发布于 2026-06-14
+                </p>
+            </div>
+            <div class="actions">
+                <a class="btn btn-primary" href="myappx-desktop-setup-6.2.1-win.exe" download>
+                    下载 Windows 安装包
+                </a>
+                <a class="btn btn-secondary" href="latest.yml">latest.yml</a>
+            </div>
+        </div>
+
+        <section id="docs">
+            <h2>文档与链接</h2>
+            <div class="grid">
+                <a class="card" href="changelog.html">
+                    <div class="title">更新日志</div>
+                    <p class="desc">版本历史、新功能与修复说明</p>
+                </a>
+            </div>
+        </section>
+
+        <section id="overview">
+            <h2>产品说明</h2>
+            <div class="two-col">
+                <div>
+                    <h3>主要特性</h3>
+                    <ul>
+                        <li>原生桌面窗口、系统托盘与通知</li>
+                        <li>连接外部 MyAppx Server，默认工作区：<code>https://localhost:18443/webui/</code></li>
+                        <li>本地服务器请求自动注入 <code>X-MyAppx-Preauth-Secret</code> 预认证头</li>
+                        <li>应用内检查更新，从本目录拉取 <code>latest.yml</code></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>系统要求</h3>
+                    <ul>
+                        <li>Windows 10 / 11（64 位）</li>
+                        <li>约 150 MB 磁盘空间（客户端）</li>
+                        <li>已部署并可访问的 MyAppx Server（如 <code>https://localhost:18443</code>）</li>
+                        <li>安装需管理员权限（NSIS 安装程序）</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="install">
+            <h2>安装与路径</h2>
+            <h3>首次安装</h3>
+            <ol>
+                <li>确保 MyAppx Server（AppxServer）已启动并可访问。</li>
+                <li>下载并运行 <code>myappx-desktop-setup-6.2.1-win.exe</code>。</li>
+                <li>按向导完成安装；启动后将连接已配置的工作区地址。</li>
+            </ol>
+            <h3>默认安装位置</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>用途</th>
+                        <th>路径（示例）</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>应用程序</td>
+                        <td><span class="path">%LOCALAPPDATA%\Programs\myappx-desktop</span></td>
+                    </tr>
+                    <tr>
+                        <td>用户数据与日志</td>
+                        <td><span class="path">%APPDATA%\MyappxDesktop</span></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="note warn">
+                升级或重装前请先<strong>完全退出</strong>桌面客户端，避免安装程序因文件占用失败。详见
+                <a href="changelog.html#upgrade">升级指南</a>。
+            </div>
+        </section>
+
+        <section id="update">
+            <h2>自动更新机制</h2>
+            <p>
+                已安装的 MyAppx Desktop 会定期请求本目录下的 <code>latest.yml</code>，比对版本号后提示下载新版本。
+                安装包 URL 相对于 <code>/desktop/</code> 解析。
+            </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>资源</th>
+                        <th>URL（相对本站点根）</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>更新清单</td>
+                        <td><a href="latest.yml"><code>/desktop/latest.yml</code></a></td>
+                        <td>electron-updater 读取的版本与 SHA512</td>
+                    </tr>
+                    <tr>
+                        <td>Windows 安装包</td>
+                        <td><a href="myappx-desktop-setup-6.2.1-win.exe"><code>/desktop/myappx-desktop-setup-6.2.1-win.exe</code></a></td>
+                        <td>与 latest.yml 中 path 一致</td>
+                    </tr>
+                    <tr>
+                        <td>Blockmap</td>
+                        <td><code>/desktop/myappx-desktop-setup-6.2.1-win.exe.blockmap</code></td>
+                        <td>差分更新校验（可选）</td>
+                    </tr>
+                    <tr>
+                        <td>Linux 安装说明</td>
+                        <td><code>/desktop/linux-desktop-install.html</code></td>
+                        <td>Linux 客户端更新跳转页</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="note">
+                发布新版本时：构建安装包 → 生成 <code>latest.yml</code> → 将 exe、blockmap、yml 与本页一并部署到
+                <code>org.adempiere.server/desktop/</code>，并更新本页版本号与下载链接。
+            </div>
+        </section>
+
+        <section id="admin">
+            <h2>管理员：目录文件清单</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>文件</th>
+                        <th>用途</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>index.html</code></td>
+                        <td>本页 — 下载门户与文档索引</td>
+                    </tr>
+                    <tr>
+                        <td><code>changelog.html</code></td>
+                        <td>更新日志（客户端「View Changelog」）</td>
+                    </tr>
+                    <tr>
+                        <td><code>latest.yml</code></td>
+                        <td>自动更新清单（必填）</td>
+                    </tr>
+                    <tr>
+                        <td><code>myappx-desktop-setup-*.exe</code></td>
+                        <td>Windows 安装程序</td>
+                    </tr>
+                    <tr>
+                        <td><code>*.exe.blockmap</code></td>
+                        <td>安装包 blockmap</td>
+                    </tr>
+                    <tr>
+                        <td><code>help.html</code> · <code>upgrade.html</code> 等</td>
+                        <td>客户端菜单外链（可按需补充）</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <footer>
+            MyAppx Desktop 6.2.1 ·
+            <a href="changelog.html">更新日志</a> ·
+            <a href="/webui/">进入 Web UI</a>
+        </footer>
+    </div>
+</body>
+</html>

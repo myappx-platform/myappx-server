@@ -3,7 +3,7 @@
 	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	   xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
 	   version="4.0">
-	<display-name>iDempiere Root</display-name>
+	<display-name>MyAppx Root</display-name>
 	<description></description>
 	<context-param>
 		<param-name>ServerRoot</param-name>
@@ -13,6 +13,22 @@
 		<param-name>org.eclipse.jetty.servlet.SessionCookie</param-name>
 		<param-value>ROOT_SESSIONID</param-value>
 	</context-param> 
+		<error-page>
+		<error-code>403</error-code>
+		<location>/error_root.jsp</location>
+	</error-page>
+	<error-page>
+		<error-code>404</error-code>
+		<location>/error_root.jsp</location>
+	</error-page>
+	<error-page>
+		<error-code>500</error-code>
+		<location>/error_root.jsp</location>
+	</error-page>
+	<error-page>
+		<error-code>503</error-code>
+		<location>/error_root.jsp</location>
+	</error-page>
 	<filter>
 		<display-name>iDempiere Monitor Filter</display-name>
 		<filter-name>idempiereMonitorFilter</filter-name>
@@ -21,6 +37,19 @@
 	<filter-mapping>
 		<filter-name>idempiereMonitorFilter</filter-name>
 		<url-pattern>/idempiereMonitor/*</url-pattern>
+	</filter-mapping>
+	<filter>
+		<display-name>POS SPA Filter</display-name>
+		<filter-name>posSpaFilter</filter-name>
+		<filter-class>org.idempiere.web.PosSpaFilter</filter-class>
+	</filter>
+	<filter-mapping>
+		<filter-name>posSpaFilter</filter-name>
+		<url-pattern>/pos</url-pattern>
+	</filter-mapping>
+	<filter-mapping>
+		<filter-name>posSpaFilter</filter-name>
+		<url-pattern>/pos/*</url-pattern>
 	</filter-mapping>
 	<servlet>
 		<servlet-name>idempiereMonitor</servlet-name>
@@ -90,6 +119,6 @@
 		</user-data-constraint> -->
 	</security-constraint>
 	<welcome-file-list>
-		<welcome-file>idempiere.jsp</welcome-file>
+		<welcome-file>index.html</welcome-file>
 	</welcome-file-list>
 </web-app>

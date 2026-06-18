@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MyAppx Desktop — 更新日志</title>
+    <meta name="description" content="MyAppx Desktop 版本更新说明与升级指南">
+    <style>
+        :root {
+            --bg: #f4f6f8;
+            --surface: #ffffff;
+            --text: #1a1d21;
+            --muted: #5e6672;
+            --accent: #1c58d9;
+            --accent-soft: #e8efff;
+            --border: #dfe3e8;
+            --success: #0d8050;
+            --warning: #c87a00;
+            --radius: 10px;
+            --shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .page {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 32px 20px 48px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1c58d9 0%, #0f3d99 100%);
+            color: #fff;
+            border-radius: var(--radius);
+            padding: 28px 32px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        header h1 {
+            margin: 0 0 8px;
+            font-size: 1.75rem;
+            font-weight: 600;
+        }
+
+        header p {
+            margin: 0;
+            opacity: 0.92;
+            font-size: 0.98rem;
+        }
+
+        .badge {
+            display: inline-block;
+            margin-top: 14px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.18);
+            font-size: 0.85rem;
+        }
+
+        section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px 28px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        section h2 {
+            margin: 0 0 16px;
+            font-size: 1.15rem;
+            color: var(--text);
+        }
+
+        section h3 {
+            margin: 0 0 10px;
+            font-size: 1rem;
+        }
+
+        .note {
+            background: var(--accent-soft);
+            border-left: 4px solid var(--accent);
+            padding: 12px 14px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0 0;
+            color: #243b6b;
+            font-size: 0.94rem;
+        }
+
+        .warn {
+            background: #fff8eb;
+            border-left-color: var(--warning);
+            color: #6b4a00;
+        }
+
+        ol, ul {
+            margin: 8px 0 0;
+            padding-left: 1.25rem;
+        }
+
+        li + li {
+            margin-top: 6px;
+        }
+
+        .release {
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+            margin-top: 20px;
+        }
+
+        .release:first-of-type {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 0;
+        }
+
+        .release-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .release-header .version {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .release-header .date {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #e6f4ee;
+            color: var(--success);
+        }
+
+        .tag.fix {
+            background: #fdecea;
+            color: #b42318;
+        }
+
+        .tag.improve {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+
+        footer {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        code {
+            background: #eef1f4;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.88em;
+        }
+
+        a {
+            color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header>
+            <h1>MyAppx Desktop 更新日志</h1>
+            <p>本页由 AppxServer 本地提供，供桌面客户端「查看更新日志」及升级前参考使用。</p>
+            <span class="badge">当前发布版本：6.2.1</span>
+        </header>
+
+        <section id="upgrade">
+            <h2>升级指南</h2>
+
+            <h3>升级前必读</h3>
+            <p>无论应用内升级还是手动安装，请先<strong>完全退出</strong> MyAppx Desktop。若客户端仍在运行，安装程序可能因文件占用而失败。</p>
+
+            <div class="note warn">
+                <strong>请勿</strong>在应用仍在运行时执行安装程序（<code>setup.exe</code>）。
+            </div>
+
+            <h3 style="margin-top: 20px;">方式一：应用内升级（推荐）</h3>
+            <ol>
+                <li>收到新版本通知后，点击 <strong>Download Update</strong> 下载安装包。</li>
+                <li>下载完成后，选择 <strong>Restart and install</strong>。</li>
+                <li>应用退出后启动安装程序完成升级。</li>
+            </ol>
+
+            <h3 style="margin-top: 20px;">方式二：手动升级</h3>
+            <ol>
+                <li>通过菜单 <strong>File → Quit</strong> 或托盘图标退出应用。</li>
+                <li>运行新版本安装程序（可从 <code>/desktop</code> 目录获取）。</li>
+            </ol>
+
+            <h3 style="margin-top: 20px;">异常退出后的恢复</h3>
+            <p>若上次因崩溃、强制结束或断电而异常退出，直接重新启动桌面客户端即可。</p>
+
+            <div class="note">
+                更新清单由 <code>latest.yml</code> 提供；安装包与 blockmap 文件需与清单一并部署到 AppxServer 的 <code>desktop/</code> 目录。
+            </div>
+        </section>
+
+        <section id="changelog">
+            <h2>版本历史</h2>
+
+            <article class="release">
+                <div class="release-header">
+                    <span class="version">6.2.1</span>
+                    <span class="date">2026-06-14</span>
+                    <span class="tag">Latest</span>
+                </div>
+                <ul>
+                    <li><span class="tag improve">改进</span> 桌面文档与更新链接统一为可配置的 <code>MYAPPX_DESKTOP_BASE_URL</code>，默认指向本地 AppxServer <code>/desktop</code> 路径。</li>
+                    <li><span class="tag improve">改进</span> 「View Changelog」等帮助链接改为从 AppxServer 加载本页，便于离线/内网环境查看更新说明。</li>
+                    <li><span class="tag fix">修复</span> 部分外部链接配置中的 URL 拼写错误。</li>
+                </ul>
+            </article>
+        </section>
+
+        <section id="deploy">
+            <h2>管理员：发布新版本</h2>
+            <ol>
+                <li>在开发机构建安装包：<code>npm run package:windows-installers</code></li>
+                <li>将生成的 <code>myappx-desktop-setup-x.y.z-win.exe</code>、<code>.blockmap</code> 及 <code>latest.yml</code> 复制到 AppxServer 的 <code>desktop/</code> 目录。</li>
+                <li>更新本页「当前发布版本」与各版本说明（可选）。</li>
+                <li>客户端下次检查更新时将拉取新的 <code>latest.yml</code>。</li>
+            </ol>
+        </section>
+
+        <footer>
+            MyAppx Desktop · 由 AppxServer 提供 · <a href="/desktop/">返回 desktop 目录</a>
+        </footer>
+    </div>
+</body>
+</html>
