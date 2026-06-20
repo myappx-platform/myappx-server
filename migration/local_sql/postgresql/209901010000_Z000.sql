@@ -58,7 +58,15 @@ INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, upda
 SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'ZK_BROWSER_TITLE', 'MyAppx ...', '', 'A', 'S', generate_uuid()
 WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'ZK_BROWSER_TITLE' AND ad_client_id = 0);
 
--- APPLICATION_*_SHOWN = N: hide DB/JVM/OS/host info on login/about (cleaner UX)
+-- APPLICATION_*_SHOWN = N: hide version/vendor/DB/JVM/OS/host on login/about (cleaner UX)
+INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
+SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'APPLICATION_MAIN_VERSION_SHOWN', 'N', '', 'A', 'S', generate_uuid()
+WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'APPLICATION_MAIN_VERSION_SHOWN' AND ad_client_id = 0);
+
+INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
+SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'APPLICATION_IMPLEMENTATION_VENDOR_SHOWN', 'N', '', 'A', 'S', generate_uuid()
+WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'APPLICATION_IMPLEMENTATION_VENDOR_SHOWN' AND ad_client_id = 0);
+
 INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
 SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'APPLICATION_DATABASE_VERSION_SHOWN', 'N', '', 'A', 'S', generate_uuid()
 WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'APPLICATION_DATABASE_VERSION_SHOWN' AND ad_client_id = 0);
@@ -74,6 +82,21 @@ WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'APPLICATION_OS_INFO_S
 INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
 SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'APPLICATION_HOST_SHOWN', 'N', '', 'A', 'S', generate_uuid()
 WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'APPLICATION_HOST_SHOWN' AND ad_client_id = 0);
+
+-- Force hide all login/about version info (idempotent on re-run)
+UPDATE ad_sysconfig
+SET value = 'N',
+    updated = statement_timestamp(),
+    updatedby = 100
+WHERE ad_client_id = 0
+  AND name IN (
+    'APPLICATION_MAIN_VERSION_SHOWN',
+    'APPLICATION_IMPLEMENTATION_VENDOR_SHOWN',
+    'APPLICATION_DATABASE_VERSION_SHOWN',
+    'APPLICATION_JVM_VERSION_SHOWN',
+    'APPLICATION_OS_INFO_SHOWN',
+    'APPLICATION_HOST_SHOWN'
+  );
 
 -- MYAPPX_DESKTOP_PREAUTH_ENABLED: Electron desktop app SSO filter (default off)
 INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
