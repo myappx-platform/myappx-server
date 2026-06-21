@@ -2141,7 +2141,7 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
         }
         else
         {
-        	adTabbox.updateDetailPaneToolbar(changed, readOnly);
+        	adTabbox.updateDetailPaneToolbar(changed, tabPanel.getGridTab().isReadOnly());
         }
         boolean isEditting = adTabbox.needSave(true, false) ||
         		adTabbox.getSelectedGridTab().isNew() ||

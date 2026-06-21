@@ -922,8 +922,9 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		IADTabpanel adtab = getADTabpanel(index);
 		if (adtab == null)
 			return;
-		if (adtab.getGridTab().isSortTab() || adtab.getGridTab().isReadOnly())
-			readOnly = true;
+		// Derive state from the detail tab itself; header tab state must not disable detail actions
+		readOnly = adtab.getGridTab().isSortTab() || adtab.getGridTab().isReadOnly();
+		changed = adtab.needSave(true, false) || adtab.getGridTab().isNew();
 		
 		// Check insert permission: only static readonly (IsReadOnly) blocks insert, not ReadOnlyLogic
 		// If tab is statically configured as readonly, insert is not allowed even if IsInsertRecord is true
