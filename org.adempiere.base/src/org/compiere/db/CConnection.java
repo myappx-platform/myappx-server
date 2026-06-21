@@ -28,6 +28,7 @@ import javax.swing.JOptionPane;
 import org.compiere.model.MSystem;
 import org.compiere.util.CLogger;
 import org.compiere.util.Ini;
+import org.compiere.util.ObfuscateUtil;
 
 /**
  *  Adempiere DB Connection Descriptor
@@ -408,7 +409,7 @@ public class CConnection implements Serializable, Cloneable
 	 */
 	public void setDbPwd (String db_pwd)
 	{
-		m_db_pwd = db_pwd;
+		m_db_pwd = ObfuscateUtil.deobfuscateIfNeeded(db_pwd);
 		m_okDB = false;
 	}	//	setDbPwd
 
@@ -427,7 +428,7 @@ public class CConnection implements Serializable, Cloneable
 	 */
 	public void setDbUid (String db_uid)
 	{
-		m_db_uid = db_uid;
+		m_db_uid = ObfuscateUtil.deobfuscateIfNeeded(db_uid);
 		m_name = toString ();
 		m_okDB = false;
 	}	//	setDbUid
