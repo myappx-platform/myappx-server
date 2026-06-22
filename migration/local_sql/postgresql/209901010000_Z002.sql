@@ -47,7 +47,7 @@ SELECT
     'ELEMENTS_AT_TENANT_LEVEL',
     'Y',
     'Turn it to Y to allow loading of tenant level elements',
-    'MYAPPX.ZZZ.001',
+    'A',
     'C',
     generate_uuid()
 WHERE NOT EXISTS (
@@ -87,7 +87,7 @@ INSERT INTO ad_tableindex (
 )
 SELECT 
     0, 0, nextidfunc(200095, 'N'), generate_uuid(),
-    statement_timestamp(), 0, 'MYAPPX.ZZZ.001', 'Y',
+    statement_timestamp(), 0, 'A', 'Y',
     'ad_element_trl_pkey',
     statement_timestamp(), 0, 277,
     'Y', 'Y', 'N', 'N', 'Y'
@@ -145,7 +145,7 @@ BEGIN
     )
     SELECT 
         0, 0, nextidfunc(200084, 'N'), generate_uuid(),
-        statement_timestamp(), 0, 'MYAPPX.ZZZ.001', 'Y',
+        statement_timestamp(), 0, 'A', 'Y',
         statement_timestamp(), 0, v_col_element_id, v_tableindex_id, 10
     WHERE NOT EXISTS (
         SELECT 1 FROM ad_indexcolumn 
@@ -160,7 +160,7 @@ BEGIN
     )
     SELECT 
         0, 0, nextidfunc(200084, 'N'), generate_uuid(),
-        statement_timestamp(), 0, 'MYAPPX.ZZZ.001', 'Y',
+        statement_timestamp(), 0, 'A', 'Y',
         statement_timestamp(), 0, v_col_language_id, v_tableindex_id, 20
     WHERE NOT EXISTS (
         SELECT 1 FROM ad_indexcolumn 
@@ -175,7 +175,7 @@ BEGIN
     )
     SELECT 
         0, 0, nextidfunc(200084, 'N'), generate_uuid(),
-        statement_timestamp(), 0, 'MYAPPX.ZZZ.001', 'Y',
+        statement_timestamp(), 0, 'A', 'Y',
         statement_timestamp(), 0, v_col_client_id, v_tableindex_id, 30
     WHERE NOT EXISTS (
         SELECT 1 FROM ad_indexcolumn 
@@ -286,7 +286,7 @@ BEGIN
             v_window_id, 'Tenant level elements',
             0, 0, 'Y',
             statement_timestamp(), 0, statement_timestamp(), 0,
-            'M', 'N', 'MYAPPX.ZZZ.001',
+            'M', 'N', 'A',
             'Y', 'N', 0, 0,
             'N', generate_uuid()
         );
@@ -318,7 +318,7 @@ BEGIN
             'N', 'N', 'N', 'N',
             'AD_Element_Trl.AD_Client_ID = @#AD_Client_ID@',
             'N', 'N', 0, 'N',
-            'MYAPPX.ZZZ.001', 'Y', 'N',
+            'A', 'Y', 'N',
             generate_uuid(), 'B',
             'N', 'Y', 0
         );
@@ -363,7 +363,7 @@ BEGIN
             v_tab_id, v_c_client,
             'Y', 22, 10, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'N', 0, 2
         );
     END IF;
@@ -383,7 +383,7 @@ BEGIN
             v_tab_id, v_c_org,
             'Y', 22, 20, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'Y', 'N', 4, 2
         );
     END IF;
@@ -403,7 +403,7 @@ BEGIN
             v_tab_id, v_c_language,
             'Y', 6, 30, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'Y', 20, 2, 'Y'
         );
     END IF;
@@ -423,7 +423,7 @@ BEGIN
             v_tab_id, v_c_element_id,
             'Y', 22, 40, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'Y', 10, 2
         );
     END IF;
@@ -443,7 +443,7 @@ BEGIN
             v_tab_id, v_c_name,
             'Y', 60, 50, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'Y', 30, 5, 3
         );
     END IF;
@@ -463,7 +463,7 @@ BEGIN
             v_tab_id, v_c_printname,
             'Y', 60, 60, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'Y', 40, 5, 3
         );
     END IF;
@@ -483,7 +483,7 @@ BEGIN
             v_tab_id, v_c_po_name,
             'Y', 60, 70, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'N', 0, 5, 3
         );
     END IF;
@@ -503,7 +503,7 @@ BEGIN
             v_tab_id, v_c_po_printname,
             'Y', 60, 80, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'N', 0, 5, 3
         );
     END IF;
@@ -523,7 +523,7 @@ BEGIN
             v_tab_id, v_c_description,
             'Y', 255, 90, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'N', 0, 5, 3
         );
     END IF;
@@ -543,7 +543,7 @@ BEGIN
             v_tab_id, v_c_help,
             'Y', 2000, 100, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'N', 0, 5, 3
         );
     END IF;
@@ -563,7 +563,7 @@ BEGIN
             v_tab_id, v_c_isactive,
             'Y', 1, 110, 'N', 'N', 'N', 'N',
             0, 0, 'Y', statement_timestamp(), 0, statement_timestamp(), 0,
-            'N', 'Y', 'MYAPPX.ZZZ.001', generate_uuid(),
+            'N', 'Y', 'A', generate_uuid(),
             'Y', 50, 2, 2
         );
     END IF;
@@ -623,7 +623,7 @@ BEGIN
             0, 0, 'Y',
             statement_timestamp(), 0, statement_timestamp(), 0,
             'N', 'Y', 'N',
-            'MYAPPX.ZZZ.001', 'Y',
+            'A', 'Y',
             generate_uuid(),
             v_window_id
         );

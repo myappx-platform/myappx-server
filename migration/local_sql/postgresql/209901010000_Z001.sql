@@ -58,7 +58,7 @@ SELECT
     'The user can insert a new Record',
     'Allow users to insert new records in this tab',
     0,
-    'D', 'IsInsertRecord', 466, 17, 319,
+    'A', 'IsInsertRecord', 466, 17, 319,
     1, 'N', 'N', 'N', 'N', 'N',
     0, 'N', 'Y', 'N', 'N',
     'N', 'N', 'Y', 'Y',
@@ -93,7 +93,7 @@ SELECT
     394,
     (SELECT ad_column_id FROM ad_column WHERE columnname = 'IsInsertRecord' AND ad_table_id = 466),
     'Y', 1, 121, 'N', 'N', 'N',
-    'N', 'N', 'Y', 'D',
+    'N', 'N', 'Y', 'A',
     'Y', 120, 4, 2, '@IsReadOnly@=Y',
     generate_uuid()
 WHERE NOT EXISTS (
