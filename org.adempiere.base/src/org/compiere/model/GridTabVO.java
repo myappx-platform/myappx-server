@@ -375,8 +375,10 @@ public class GridTabVO implements Evaluatee, Serializable
 				vo.DisplayLogic = userDef.getDisplayLogic();
 			if (userDef.getIsReadOnly() != null)
 				vo.IsReadOnly = MUserDefTab.ISREADONLY_Yes.equals(userDef.getIsReadOnly());
-			if (userDef.getReadOnlyLogic() != null)
+			if (userDef.getReadOnlyLogic() != null) {
 				vo.ReadOnlyLogic = userDef.getReadOnlyLogic();
+				vo.userDefReadOnlyLogicApplied = true;
+			}
 			if (userDef.getDescription() != null)
 				vo.Description = userDef.getDescription();
 			if (userDef.getHelp() != null)
@@ -392,7 +394,9 @@ public class GridTabVO implements Evaluatee, Serializable
 			} else if (userDef.getIsInsertRecord() != null) {
 				// Base tab allows insert, apply user def tab setting
 				vo.IsInsertRecord = X_AD_UserDef_Tab.ISINSERTRECORD_Yes.equals(userDef.getIsInsertRecord());
+				vo.userDefIsInsertRecordExplicit = true;
 			}
+			vo.hasUserDefTab = true;
 			if (userDef.getIsSingleRow() != null)
 				vo.IsSingleRow = MUserDefTab.ISSINGLEROW_Yes.equals(userDef.getIsSingleRow());
 			if (!Util.isEmpty(userDef.getIsHighVolume()))
@@ -591,6 +595,12 @@ public class GridTabVO implements Evaluatee, Serializable
 	public  boolean     IsReadOnly = false;
 	/** Insert Record	*/
 	public 	boolean		IsInsertRecord = true;
+	/** User Define Tab customization applied for this tab */
+	public  boolean     hasUserDefTab = false;
+	/** User Define Tab IsInsertRecord is explicit (Y/N), not NULL inherit */
+	public  boolean     userDefIsInsertRecordExplicit = false;
+	/** User Define Tab supplied ReadOnlyLogic (not inherited from base tab only) */
+	public  boolean     userDefReadOnlyLogicApplied = false;
 	/** Tree			*/
 	public  boolean	    HasTree = false;
 	/** Tree displayed on	*/
@@ -731,6 +741,9 @@ public class GridTabVO implements Evaluatee, Serializable
 		clone.IsSingleRow = IsSingleRow;
 		clone.IsReadOnly = IsReadOnly;
 		clone.IsInsertRecord = IsInsertRecord;
+		clone.hasUserDefTab = hasUserDefTab;
+		clone.userDefIsInsertRecordExplicit = userDefIsInsertRecordExplicit;
+		clone.userDefReadOnlyLogicApplied = userDefReadOnlyLogicApplied;
 		clone.HasTree = HasTree;
 		clone.TreeDisplayedOn = TreeDisplayedOn;
 		clone.MaxQueryRecords = MaxQueryRecords;

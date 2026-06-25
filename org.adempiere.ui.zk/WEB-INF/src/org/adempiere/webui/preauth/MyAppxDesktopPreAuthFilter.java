@@ -20,18 +20,21 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.compiere.util.CLogger;
+import org.compiere.util.Util;
 
 /**
  * Gate for MyAppx Desktop clients using a shared pre-authentication secret header.
  * <p>
  * Requests must include {@code X-MyAppx-Preauth-Secret} matching the configured secret.
- * Missing or invalid secrets receive HTTP 403 with {@code X-Reject-Reason: pre-auth}.
+ * Missing or invalid secrets receive HTTP 403 with {@code X-Reject-Reason: pre-auth}
+ * and an HTML page linking to the MyAppx Desktop download page ({@code /desktop/}).
  */
 public class MyAppxDesktopPreAuthFilter implements Filter
 {
 	public static final String HEADER_PREAUTH_SECRET = "X-MyAppx-Preauth-Secret";
 	public static final String HEADER_REJECT_REASON = "X-Reject-Reason";
 	public static final String REJECT_REASON_PREAUTH = "pre-auth";
+	private static final String DESKTOP_PAGE_PATH = "/desktop/";
 
 	private static final CLogger log = CLogger.getCLogger(MyAppxDesktopPreAuthFilter.class);
 
@@ -81,20 +84,47 @@ public class MyAppxDesktopPreAuthFilter implements Filter
 			return;
 		}
 
-		reject(httpResponse);
+		reject(httpRequest, httpResponse);
 	}
 
-	private static void reject(HttpServletResponse response) throws IOException
+	private static void reject(HttpServletRequest request, HttpServletResponse response) throws IOException
 	{
 		if (response.isCommitted())
 			return;
 
+		String desktopPageUrl = buildDesktopPageUrl(request);
+
 		response.resetBuffer();
 		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 		response.setHeader(HEADER_REJECT_REASON, REJECT_REASON_PREAUTH);
-		response.setContentType("text/plain;charset=UTF-8");
+		response.setContentType("text/html;charset=UTF-8");
 		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-		response.getWriter().write("MyAppx Desktop authentication required.");
+		response.getWriter().write(buildRejectHtml(desktopPageUrl));
+	}
+
+	static String buildDesktopPageUrl(HttpServletRequest request)
+	{
+		String contextPath = request.getContextPath();
+		if (Util.isEmpty(contextPath, true))
+			return DESKTOP_PAGE_PATH;
+
+		return contextPath + DESKTOP_PAGE_PATH;
+	}
+
+	private static String buildRejectHtml(String desktopPageUrl)
+	{
+		return "<!DOCTYPE html>\n"
+			+ "<html lang=\"zh-CN\">\n"
+			+ "<head>\n"
+			+ "<meta charset=\"UTF-8\">\n"
+			+ "<title>Desktop authentication required</title>\n"
+			+ "</head>\n"
+			+ "<body>\n"
+			+ "<h1>Desktop authentication required</h1>\n"
+			+ "<p>请使用 My Desktop 客户端访问本系统。</p>\n"
+			+ "<p><a href=\"" + desktopPageUrl + "\">下载 My Desktop</a></p>\n"
+			+ "</body>\n"
+			+ "</html>";
 	}
 
 	@Override

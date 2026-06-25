@@ -1158,10 +1158,8 @@ public class GridTab implements DataStatusListener, Evaluatee, Serializable
 			log.warning ("Copy Not allowed - Tab is readonly, TabNo=" + m_vo.TabNo);
 			return false;
 		}
-		// Check insert permission: only static readonly (IsReadOnly) blocks insert, not ReadOnlyLogic
-		// Use the same logic as UI to ensure consistency
-		boolean insertRecord = !m_vo.IsReadOnly && m_vo.IsInsertRecord;
-		if (!insertRecord)
+		// Check insert permission (see isInsertAllowed())
+		if (!isInsertAllowed())
 		{
 			log.warning ("Insert Not allowed in TabNo=" + m_vo.TabNo);
 			return false;
@@ -1568,6 +1566,31 @@ public class GridTab implements DataStatusListener, Evaluatee, Serializable
 			return false;
 		return m_vo.IsInsertRecord;
 	}	//	isInsertRecord
+
+	/**
+	 * Can the user insert a new record (New toolbar / dataNew)?
+	 * <ul>
+	 * <li>Static {@code IsReadOnly} and {@code IsInsertRecord} from VO always apply.</li>
+	 * <li>Without User Define Tab: dynamic {@code ReadOnlyLogic} does not block insert (standard iDempiere).</li>
+	 * <li>With User Define Tab, IsInsertRecord NULL (inherit), and UserDef ReadOnlyLogic
+	 *     on a <strong>detail</strong> tab: {@code ReadOnlyLogic} also blocks insert
+	 *     (New adds a child row under the current parent).</li>
+	 * <li>Header tab (TabLevel 0): dynamic {@code ReadOnlyLogic} never blocks insert
+	 *     (New creates a new parent record; standard iDempiere).</li>
+	 * <li>With User Define Tab and explicit IsInsertRecord Y/N: only static VO applies;
+	 *     when Y, {@code ReadOnlyLogic} does not block insert.</li>
+	 * </ul>
+	 * @return true if insert is allowed
+	 */
+	public boolean isInsertAllowed()
+	{
+		if (m_vo.IsReadOnly || !m_vo.IsInsertRecord)
+			return false;
+		if (m_vo.hasUserDefTab && !m_vo.userDefIsInsertRecordExplicit
+				&& m_vo.userDefReadOnlyLogicApplied && isDetail() && isReadOnly())
+			return false;
+		return true;
+	}	//	isInsertAllowed
 
 	/**
 	 *	Can we Delete Records?

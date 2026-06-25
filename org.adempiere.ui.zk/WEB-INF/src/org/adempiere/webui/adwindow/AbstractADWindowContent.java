@@ -2115,10 +2115,12 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
         boolean changed = e.isChanged() || e.isInserting();
         boolean readOnly = adTabbox.getSelectedGridTab().isReadOnly();
         boolean processed = adTabbox.getSelectedGridTab().isProcessed();
-        // Check insert permission: only static readonly (IsReadOnly) blocks insert, not ReadOnlyLogic
-        // If tab is statically configured as readonly, insert is not allowed even if IsInsertRecord is true
-        // If tab is not statically readonly but ReadOnlyLogic is true, insert is allowed if IsInsertRecord is true
-        boolean insertRecord = !tabPanel.getGridTab().getVO().IsReadOnly && tabPanel.getGridTab().getVO().IsInsertRecord;
+        // Insert permission: see GridTab.isInsertAllowed()
+        // Standard tabs: only static IsReadOnly blocks insert, not ReadOnlyLogic
+        // User Define Tab detail tab: IsInsertRecord NULL + UserDef ReadOnlyLogic also blocks insert
+        // Header tab: ReadOnlyLogic never blocks insert (New creates a new parent record)
+        // User Define Tab with explicit IsInsertRecord Y/N: static VO only (ReadOnlyLogic does not block when Y)
+        boolean insertRecord = tabPanel.getGridTab().isInsertAllowed();
         // For copy operation, check both static and dynamic readonly
         // If tab is readonly (static or dynamic), copy is not allowed
         boolean canCopy = insertRecord && !readOnly;
@@ -2471,11 +2473,9 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
      */
     private void onNewCallback(final Callback<Boolean> postCallback)
     {
-        // Check insert permission: only static readonly (IsReadOnly) blocks insert, not ReadOnlyLogic
-        // Use the same logic as UI button to ensure consistency
+        // Check insert permission (see GridTab.isInsertAllowed())
         GridTab gridTab = adTabbox.getSelectedGridTab();
-        boolean insertRecord = !gridTab.getVO().IsReadOnly && gridTab.getVO().IsInsertRecord;
-        if (!insertRecord)
+        if (!gridTab.isInsertAllowed())
         {
             logger.warning("Insert Record disabled for Tab");
             if (postCallback != null)
@@ -2573,10 +2573,8 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
             	postCallback.onCallback(false);
             return;
         }
-        // Check insert permission: only static readonly (IsReadOnly) blocks insert, not ReadOnlyLogic
-        // Use the same logic as UI button to ensure consistency
-        boolean insertRecord = !gridTab.getVO().IsReadOnly && gridTab.getVO().IsInsertRecord;
-        if (!insertRecord)
+        // Check insert permission (see GridTab.isInsertAllowed())
+        if (!gridTab.isInsertAllowed())
         {
             logger.warning("Insert Record disabled for Tab");
             if (postCallback != null)

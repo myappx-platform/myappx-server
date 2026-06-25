@@ -1,8 +1,8 @@
 version: 6.2.1
 files:
-  - url: myappx-desktop-setup-6.2.1-win.exe
-    sha512: DqjeLZrS98vX+3zS3/PyIQvaM98ZdzP6/7puUDNA4qHMs79U5NdJYSi5xLR4Qx0R5lBHkNFPWO9TAy8QpOYvfQ==
-    size: 107150167
-path: myappx-desktop-setup-6.2.1-win.exe
-sha512: DqjeLZrS98vX+3zS3/PyIQvaM98ZdzP6/7puUDNA4qHMs79U5NdJYSi5xLR4Qx0R5lBHkNFPWO9TAy8QpOYvfQ==
-releaseDate: '2026-06-14T15:26:05.823Z'
+  - url: myedi-desktop-setup-6.2.1-win.exe
+    sha512: mhCl8TpRBhXGb6zuyo8XQYmPxV8H2DCX6Nbly3s0wpQvxKB7wj2aqOaUJ6w1PU0XaHPCzHTDenRCxsRM8K9aSQ==
+    size: 111047760
+path: myedi-desktop-setup-6.2.1-win.exe
+sha512: mhCl8TpRBhXGb6zuyo8XQYmPxV8H2DCX6Nbly3s0wpQvxKB7wj2aqOaUJ6w1PU0XaHPCzHTDenRCxsRM8K9aSQ==
+releaseDate: '2026-06-25T12:57:16.122Z'

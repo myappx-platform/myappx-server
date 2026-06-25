@@ -40,3 +40,5 @@ out/
 */.maven.run/**
 **/.idea/*
 partial-runtime/
+org.idempiere.karaf/
+docs/

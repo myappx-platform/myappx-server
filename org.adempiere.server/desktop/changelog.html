@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>MyAppx Desktop — 更新日志</title>
-    <meta name="description" content="MyAppx Desktop 版本更新说明与升级指南">
+    <title>My Desktop — 更新日志</title>
+    <meta name="description" content="My Desktop 版本更新说明与升级指南">
     <style>
         :root {
             --bg: #f4f6f8;
@@ -188,7 +188,7 @@
 <body>
     <div class="page">
         <header>
-            <h1>MyAppx Desktop 更新日志</h1>
+            <h1>My Desktop 更新日志</h1>
             <p>本页由 AppxServer 本地提供，供桌面客户端「查看更新日志」及升级前参考使用。</p>
             <span class="badge">当前发布版本：6.2.1</span>
         </header>
@@ -197,7 +197,7 @@
             <h2>升级指南</h2>
 
             <h3>升级前必读</h3>
-            <p>无论应用内升级还是手动安装，请先<strong>完全退出</strong> MyAppx Desktop。若客户端仍在运行，安装程序可能因文件占用而失败。</p>
+            <p>无论应用内升级还是手动安装，请先<strong>完全退出</strong> My Desktop。若客户端仍在运行，安装程序可能因文件占用而失败。</p>
 
             <div class="note warn">
                 <strong>请勿</strong>在应用仍在运行时执行安装程序（<code>setup.exe</code>）。
@@ -215,44 +215,10 @@
                 <li>通过菜单 <strong>File → Quit</strong> 或托盘图标退出应用。</li>
                 <li>运行新版本安装程序（可从 <code>/desktop</code> 目录获取）。</li>
             </ol>
-
-            <h3 style="margin-top: 20px;">异常退出后的恢复</h3>
-            <p>若上次因崩溃、强制结束或断电而异常退出，直接重新启动桌面客户端即可。</p>
-
-            <div class="note">
-                更新清单由 <code>latest.yml</code> 提供；安装包与 blockmap 文件需与清单一并部署到 AppxServer 的 <code>desktop/</code> 目录。
-            </div>
-        </section>
-
-        <section id="changelog">
-            <h2>版本历史</h2>
-
-            <article class="release">
-                <div class="release-header">
-                    <span class="version">6.2.1</span>
-                    <span class="date">2026-06-14</span>
-                    <span class="tag">Latest</span>
-                </div>
-                <ul>
-                    <li><span class="tag improve">改进</span> 桌面文档与更新链接统一为可配置的 <code>MYAPPX_DESKTOP_BASE_URL</code>，默认指向本地 AppxServer <code>/desktop</code> 路径。</li>
-                    <li><span class="tag improve">改进</span> 「View Changelog」等帮助链接改为从 AppxServer 加载本页，便于离线/内网环境查看更新说明。</li>
-                    <li><span class="tag fix">修复</span> 部分外部链接配置中的 URL 拼写错误。</li>
-                </ul>
-            </article>
-        </section>
-
-        <section id="deploy">
-            <h2>管理员：发布新版本</h2>
-            <ol>
-                <li>在开发机构建安装包：<code>npm run package:windows-installers</code></li>
-                <li>将生成的 <code>myappx-desktop-setup-x.y.z-win.exe</code>、<code>.blockmap</code> 及 <code>latest.yml</code> 复制到 AppxServer 的 <code>desktop/</code> 目录。</li>
-                <li>更新本页「当前发布版本」与各版本说明（可选）。</li>
-                <li>客户端下次检查更新时将拉取新的 <code>latest.yml</code>。</li>
-            </ol>
         </section>
 
         <footer>
-            MyAppx Desktop · 由 AppxServer 提供 · <a href="/desktop/">返回 desktop 目录</a>
+             · <a href="/desktop/">返回 desktop 目录</a>
         </footer>
     </div>
 </body>

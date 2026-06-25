@@ -926,13 +926,14 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		readOnly = adtab.getGridTab().isSortTab() || adtab.getGridTab().isReadOnly();
 		changed = adtab.needSave(true, false) || adtab.getGridTab().isNew();
 		
-		// Check insert permission: only static readonly (IsReadOnly) blocks insert, not ReadOnlyLogic
-		// If tab is statically configured as readonly, insert is not allowed even if IsInsertRecord is true
-		// If tab is not statically readonly but ReadOnlyLogic is true, insert is allowed if IsInsertRecord is true
-		boolean insertRecord = !adtab.getGridTab().getVO().IsReadOnly && adtab.getGridTab().getVO().IsInsertRecord;
+		// Insert permission: see GridTab.isInsertAllowed()
+		// Standard tabs: only static IsReadOnly blocks insert, not ReadOnlyLogic
+		// User Define Tab detail tab: IsInsertRecord NULL + UserDef ReadOnlyLogic also blocks insert
+		// Header tab: ReadOnlyLogic never blocks insert (New creates a new parent record)
+		boolean insertRecord = adtab.getGridTab().isInsertAllowed();
     	boolean deleteRecord = !readOnly;
 
-        boolean enableNew = insertRecord && !adtab.getGridTab().isSortTab();
+        boolean enableNew = !changed && insertRecord && !adtab.getGridTab().isSortTab();
 		if (deleteRecord)
         {
 			deleteRecord = adtab.getGridTab().isDeleteRecord();
