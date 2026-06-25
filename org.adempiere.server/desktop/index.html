@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>MyAppx Desktop — 下载与文档</title>
-    <meta name="description" content="My Desktop 客户端下载、升级说明与帮助文档入口">
+    <title>My Desktop — 下载与文档</title>
+    <meta name="description" content="My Desktop 客户端下载、升级说明与版本更新日志">
     <style>
         :root {
             --bg: #f4f6f8;
@@ -220,12 +220,65 @@
             word-break: break-all;
         }
 
-        ul {
+        ol, ul {
             margin: 8px 0 0;
             padding-left: 1.25rem;
         }
 
         li + li { margin-top: 6px; }
+
+        .release {
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+            margin-top: 20px;
+        }
+
+        .release:first-of-type {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 0;
+        }
+
+        .release-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .release-header .version {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .release-header .date {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #e6f4ee;
+            color: var(--success);
+        }
+
+        .tag.fix {
+            background: #fdecea;
+            color: #b42318;
+        }
+
+        .tag.improve {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
 
         .note {
             background: var(--accent-soft);
@@ -267,13 +320,13 @@
 <body>
     <div class="page">
         <header>
-            <h1>MyAppx Desktop</h1>
+            <h1>My Desktop</h1>
             <p class="lead">
                 My Desktop 桌面客户端将 My Workspace 工作区封装为原生 Windows 应用，连接已运行的 MyAppx Server（AppxServer），
                 支持应用内自动更新与内网分发。
             </p>
             <div class="hero-meta">
-                <span class="badge">当前版本 6.2.1</span>
+                <span class="badge">当前版本 6.2.2</span>
                 <span class="badge">Windows x64</span>
             </div>
         </header>
@@ -282,25 +335,16 @@
             <div class="info">
                 <h2>下载最新安装包</h2>
                 <p>
-                    发布于 2026-06-14
+                    <strong>myedi-desktop-setup-6.2.2-win.exe</strong>
+                    · 约 106 MB · 发布于 2026-06-25
                 </p>
             </div>
             <div class="actions">
-                <a class="btn btn-primary" href="myedi-desktop-setup-6.2.1-win.exe" download>
+                <a class="btn btn-primary" href="myedi-desktop-setup-6.2.2-win.exe" download>
                     下载 Windows 安装包
                 </a>
             </div>
         </div>
-
-        <section id="docs">
-            <h2>文档与链接</h2>
-            <div class="grid">
-                <a class="card" href="changelog.html">
-                    <div class="title">更新日志</div>
-                    <p class="desc">版本历史、新功能与修复说明</p>
-                </a>
-            </div>
-        </section>
 
         <section id="overview">
             <h2>产品说明</h2>
@@ -310,8 +354,8 @@
                     <ul>
                         <li>原生桌面窗口、系统托盘与通知</li>
                         <li>连接外部 MyAppx Server</li>
-                        <li>本地服务器请求自动注入 <code>X-Preauth-Secret</code> 预认证头</li>
-                        <li>应用内检查更新，从本目录拉取 <code>latest.yml</code></li>
+                        <li>本地服务器请求自动注入预认证头</li>
+                        <li>应用内检查更新</li>
                     </ul>
                 </div>
                 <div>
@@ -326,9 +370,43 @@
             </div>
         </section>
 
+        <section id="upgrade">
+            <h2>升级指南</h2>
+
+            <h3>升级前必读</h3>
+            <p>无论应用内升级还是手动安装，请先<strong>完全退出</strong> My Desktop。若客户端仍在运行，安装程序可能因文件占用而失败。</p>
+
+            <div class="note warn">
+                <strong>请勿</strong>在应用仍在运行时执行安装程序（<code>setup.exe</code>）。
+            </div>
+
+            <h3 style="margin-top: 20px;">方式一：应用内升级（推荐）</h3>
+            <ol>
+                <li>收到新版本通知后，点击 <strong>Download Update</strong> 下载安装包。</li>
+                <li>下载完成后，选择 <strong>Restart and install</strong>。</li>
+                <li>应用退出后启动安装程序完成升级。</li>
+            </ol>
+
+            <h3 style="margin-top: 20px;">方式二：手动升级</h3>
+            <ol>
+                <li>通过菜单 <strong>File → Quit</strong> 或托盘图标退出应用。</li>
+                <li>运行新版本安装程序（可从 <code>/desktop</code> 目录获取）。</li>
+            </ol>
+        </section>
+
+        <section id="changelog">
+            <h2>版本历史</h2>
+
+            <article class="release">
+                <div class="release-header">
+                    <span class="version">6.2.2</span>
+                    <span class="date">2026-06-25</span>
+                    <span class="tag">Latest</span>
+                </div>
+            </article>
+        </section>
+
         <footer>
-             ·
-            <a href="changelog.html">更新日志</a> ·
             <a href="/webui/">进入 Web UI</a>
         </footer>
     </div>
