@@ -41,6 +41,11 @@ INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, upda
 SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'PDF_FONT_DIR', '/opt/appserver/data/fonts', 'Fonts folder for embedded in PDF', 'A', 'S', generate_uuid()
 WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'PDF_FONT_DIR' AND ad_client_id = 0);
 
+-- STANDARD_REPORT_FOOTER_TRADEMARK_TEXT: report PDF footer (replaces default iDempiere®)
+INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
+SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'STANDARD_REPORT_FOOTER_TRADEMARK_TEXT', 'MyEDI', 'Trademark text on standard report footer', 'A', 'S', generate_uuid()
+WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'STANDARD_REPORT_FOOTER_TRADEMARK_TEXT' AND ad_client_id = 0);
+
 -- ZK_* branding: iceblue_c theme logos, favicon, browser tab title
 INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
 SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'ZK_LOGO_LARGE', '~./theme/iceblue_c/images/myappx-large-logo.png', '', 'A', 'S', generate_uuid()
@@ -55,7 +60,7 @@ SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp()
 WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'ZK_BROWSER_ICON' AND ad_client_id = 0);
 
 INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
-SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'ZK_BROWSER_TITLE', 'MyAppx ...', '', 'A', 'S', generate_uuid()
+SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'ZK_BROWSER_TITLE', 'MyEDI ...', '', 'A', 'S', generate_uuid()
 WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'ZK_BROWSER_TITLE' AND ad_client_id = 0);
 
 -- APPLICATION_*_SHOWN = N: hide version/vendor/DB/JVM/OS/host on login/about (cleaner UX)
@@ -107,7 +112,7 @@ WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'MYAPPX_DESKTOP_PREAUT
 -- Overrides standard iDempiere defaults for MyAppx UX (email login, paging, upload, session 2h, etc.)
 UPDATE ad_sysconfig 
 SET value = CASE name
-    WHEN 'USE_EMAIL_FOR_LOGIN' THEN 'Y'
+    WHEN 'USE_EMAIL_FOR_LOGIN' THEN 'N'
     WHEN 'ZK_PAGING_SIZE' THEN '100'
     WHEN 'ZK_PAGING_DETAIL_SIZE' THEN '100'
     WHEN 'ZK_THEME_USE_FONT_ICON_FOR_IMAGE' THEN 'Y'

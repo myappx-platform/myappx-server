@@ -198,7 +198,8 @@ public class AboutWindow extends Window implements EventListener<Event> {
 		tabPanel.setParent(tabPanels);
 
 		MUser user = MUser.get(Env.getCtx());
-		if (user.isAdministrator()) // only open to administrator
+		// if (user.isAdministrator()) // only open to administrator
+		if (false) // hidden from all users
 		{
 		//Credit
 		tab = new Tab();
@@ -452,7 +453,8 @@ public class AboutWindow extends Window implements EventListener<Event> {
 		image.setParent(vbox);
 		
 		MUser user = MUser.get(Env.getCtx());
-		if (user.isAdministrator()) // only open to administrator
+		// if (user.isAdministrator()) // only open to administrator
+		if (false) // hidden from all users
 		{
 		Text text = new Text("Powered by iDempiere");
 		text.setParent(vbox);

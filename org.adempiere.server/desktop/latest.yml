@@ -1,8 +1,8 @@
 version: 6.2.2
 files:
   - url: myedi-desktop-setup-6.2.2-win.exe
-    sha512: oD563rOuv1xzNs0Pr7VWhkLnWHm4y21piDQlU9RZuH+1bdlOsaeCi5aA0vIbpI++39B4RU7MbmUMjwgCe37A4A==
-    size: 111047967
+    sha512: sCaVyQ5HzpiGWcir1FQv4qpMoHCqRumrVH48zXjH72CxWES9sDh+Z79i6qYo6/NIZjT7AaBZQ5jO5babSkzpKw==
+    size: 111047662
 path: myedi-desktop-setup-6.2.2-win.exe
-sha512: oD563rOuv1xzNs0Pr7VWhkLnWHm4y21piDQlU9RZuH+1bdlOsaeCi5aA0vIbpI++39B4RU7MbmUMjwgCe37A4A==
-releaseDate: '2026-06-25T14:28:28.458Z'
+sha512: sCaVyQ5HzpiGWcir1FQv4qpMoHCqRumrVH48zXjH72CxWES9sDh+Z79i6qYo6/NIZjT7AaBZQ5jO5babSkzpKw==
+releaseDate: '2026-06-26T05:09:24.473Z'

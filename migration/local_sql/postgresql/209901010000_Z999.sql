@@ -17,7 +17,7 @@
 
 DO $$
 DECLARE
-  v_build_version TEXT := '14.0.0.20260618';  -- *** edit here only ***
+  v_build_version TEXT := '14.0.0.20260626';  -- *** edit here only ***
 BEGIN
   ---- Update lastbuildinfo
   UPDATE ad_system
