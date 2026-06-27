@@ -105,7 +105,7 @@ WHERE ad_client_id = 0
 
 -- MYAPPX_DESKTOP_PREAUTH_ENABLED: Electron desktop app SSO filter (default off)
 INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
-SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 0, 0, 'Y', 'MYAPPX_DESKTOP_PREAUTH_ENABLED', 'N', 'Enable MyAppx Desktop pre-authentication filter (Y/N)', 'A', 'S', generate_uuid()
+SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 0, 0, 'Y', 'MYAPPX_DESKTOP_PREAUTH_ENABLED', 'Y', 'Enable MyAppx Desktop pre-authentication filter (Y/N)', 'A', 'S', generate_uuid()
 WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'MYAPPX_DESKTOP_PREAUTH_ENABLED' AND ad_client_id = 0);
 
 -- Setup AD_SYSCONFIG - Update existing configuration values
