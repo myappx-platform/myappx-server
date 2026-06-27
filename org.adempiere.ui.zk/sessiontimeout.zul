@@ -1,45 +1,234 @@
 <?page title="iDempiere" contentType="text/html;charset=UTF-8" automaticTimeout="false" ?>
 <?init zscript="theme.zs" ?>
 <?link rel="icon" type="image/png" href="${browserIcon}"?>
-<zk>
+<zk xmlns:n="native">
 <zscript>
 <![CDATA[
-	import org.compiere.util.Msg;
-	import org.compiere.util.Env;
 	import org.adempiere.webui.theme.ThemeManager;
 	self.setTitle(ThemeManager.getBrowserTitle());
 ]]>
 </zscript>
-<window width="60%" mode="highlighted" style="padding: 5px; background-color:white;">
-<vlayout use="org.adempiere.webui.component.FlexVlayout">
 
-<div id="timeoutText"></div>
-<div style="margin-top: 10px">
-	<button id="continueText" href="/index.zul" label="Continue"/>
-</div>
-</vlayout>
+<n:style>
+<![CDATA[
+	:root {
+		--bg: #f4f6f8;
+		--surface: #ffffff;
+		--text: #1a1d21;
+		--muted: #5e6672;
+		--accent: #1c58d9;
+		--accent-hover: #1548b8;
+		--accent-soft: #e8efff;
+		--border: #dfe3e8;
+		--warning: #c87a00;
+		--radius: 10px;
+		--shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+	}
+	* { box-sizing: border-box; }
+	html, body {
+		margin: 0;
+		height: 100%;
+		background: var(--bg);
+	}
+	body > .z-page,
+	body > .z-page > .z-page-content {
+		height: 100%;
+	}
+	.myappx-timeout-body {
+		min-height: 100vh;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 24px 16px;
+		font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+		color: var(--text);
+		line-height: 1.6;
+	}
+	.myappx-timeout-body .page {
+		width: 100%;
+		max-width: 640px;
+	}
+	.myappx-timeout-body header {
+		background: linear-gradient(135deg, #1c58d9 0%, #0f3d99 100%);
+		color: #fff;
+		border-radius: var(--radius);
+		padding: 28px 32px;
+		box-shadow: var(--shadow);
+		margin-bottom: 20px;
+		text-align: center;
+	}
+	.myappx-timeout-body header .icon {
+		font-size: 2.4rem;
+		line-height: 1;
+		margin-bottom: 12px;
+		opacity: 0.95;
+	}
+	.myappx-timeout-body header h1 {
+		margin: 0 0 8px;
+		font-size: 1.55rem;
+		font-weight: 600;
+	}
+	.myappx-timeout-body header h1 .en {
+		font-weight: 500;
+		opacity: 0.92;
+	}
+	.myappx-timeout-body header .lead {
+		margin: 0;
+		opacity: 0.92;
+		font-size: 0.96rem;
+	}
+	.myappx-timeout-body header .lead .en {
+		display: block;
+		margin-top: 6px;
+		font-size: 0.9rem;
+		opacity: 0.88;
+	}
+	.myappx-timeout-body .badge {
+		display: inline-block;
+		margin-top: 14px;
+		padding: 4px 12px;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.18);
+		font-size: 0.82rem;
+		font-weight: 600;
+		letter-spacing: 0.02em;
+	}
+	.myappx-timeout-body section {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 24px 28px;
+		margin-bottom: 16px;
+		box-shadow: var(--shadow);
+	}
+	.myappx-timeout-body section .message {
+		margin: 0;
+		color: var(--muted);
+		font-size: 0.94rem;
+	}
+	.myappx-timeout-body section .message .en {
+		display: block;
+		margin-top: 8px;
+		font-size: 0.9rem;
+		opacity: 0.9;
+	}
+	.myappx-timeout-body .action-panel {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 24px 28px;
+		margin-bottom: 16px;
+		box-shadow: var(--shadow);
+		text-align: center;
+	}
+	.myappx-timeout-body .action-panel .hint {
+		margin: 0 0 18px;
+		color: var(--muted);
+		font-size: 0.92rem;
+	}
+	.myappx-timeout-body .action-panel .hint .en {
+		display: block;
+		margin-top: 4px;
+		font-size: 0.86rem;
+	}
+	.myappx-timeout-body .note .en {
+		display: block;
+		margin-top: 6px;
+		font-size: 0.88rem;
+		opacity: 0.9;
+	}
+	.myappx-timeout-body .myappx-timeout-btn.z-button,
+	.myappx-timeout-body .myappx-timeout-btn.z-button:hover,
+	.myappx-timeout-body .myappx-timeout-btn.z-button:focus {
+		display: inline-block;
+		padding: 12px 28px;
+		border-radius: 8px;
+		font-size: 0.98rem;
+		font-weight: 600;
+		text-decoration: none;
+		background: var(--accent) !important;
+		color: #fff !important;
+		border: none !important;
+		box-shadow: none;
+		min-width: 140px;
+	}
+	.myappx-timeout-body .myappx-timeout-btn.z-button:hover {
+		background: var(--accent-hover) !important;
+	}
+	.myappx-timeout-body .note {
+		background: var(--accent-soft);
+		border-left: 4px solid var(--accent);
+		padding: 12px 14px;
+		border-radius: 0 8px 8px 0;
+		color: #243b6b;
+		font-size: 0.92rem;
+	}
+	.myappx-timeout-body footer {
+		text-align: center;
+		color: var(--muted);
+		font-size: 0.85rem;
+	}
+]]>
+</n:style>
+
+<n:div class="myappx-timeout-body">
+	<n:div class="page">
+		<n:header>
+			<n:div class="icon" aria-hidden="true">&#9201;</n:div>
+			<n:h1>会话已过期 <n:span class="en">· Session Expired</n:span></n:h1>
+			<n:p class="lead">
+				您的登录会话已结束，请重新登录以继续使用。
+				<n:span class="en">Your session has ended. Please sign in again to continue.</n:span>
+			</n:p>
+			<n:span class="badge">Session Timeout · 会话超时</n:span>
+		</n:header>
+
+		<n:section>
+			<div id="timeoutText" sclass="message"/>
+		</n:section>
+
+		<n:div class="action-panel">
+			<n:p class="hint">
+				点击下方按钮返回登录页
+				<n:span class="en">Click below to return to the login page</n:span>
+			</n:p>
+			<button id="continueText" href="/index.zul" label="Continue" sclass="myappx-timeout-btn"/>
+		</n:div>
+
+		<n:section>
+			<n:div class="note">
+				<n:strong>提示 · Note：</n:strong>
+				若长时间未操作，系统会自动结束会话以保护账户安全。未保存的数据可能已丢失。
+				<n:span class="en">If inactive for too long, the system ends your session for security. Unsaved data may have been lost.</n:span>
+			</n:div>
+		</n:section>
+
+		<n:footer>MyAppx Server</n:footer>
+	</n:div>
+</n:div>
+
 <script>
 <![CDATA[
 	zk.load("adempiere.local.storage");
 ]]>
 </script>
 <script defer="true">
-<![CDATA[		
+<![CDATA[
+	var defaultTimeoutText = "您请求的页面或组件已不可用，通常由会话超时或服务器重启导致。<br><span class=\"en\">The page or component you requested is no longer available. This is usually caused by session timeout or a server restart.</span>";
+	var defaultContinueText = "继续 / Continue";
+
 	var callback = function(ok, val) {
-		if (ok && !!val)
-		{
-			document.getElementById("${timeoutText.uuid}").innerHTML = val;
-		}
+		var el = document.getElementById("${timeoutText.uuid}");
+		if (!el) return;
+		el.innerHTML = (ok && val) ? val : defaultTimeoutText;
 	};
 	var callbackC = function(ok, val) {
-		if (ok && !!val)
-		{
-			document.getElementById("${continueText.uuid}").innerHTML = val;
-		}
+		var el = document.getElementById("${continueText.uuid}");
+		if (!el) return;
+		el.innerHTML = (ok && val) ? val : defaultContinueText;
 	};
-    adempiere.get("zkTimeoutText", callback);
+	adempiere.get("zkTimeoutText", callback);
 	adempiere.get("zkContinueText", callbackC);
-]]>	
+]]>
 </script>
-</window>
 </zk>
