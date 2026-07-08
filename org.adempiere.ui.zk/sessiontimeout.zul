@@ -83,6 +83,18 @@
 		font-size: 0.9rem;
 		opacity: 0.88;
 	}
+	.myappx-timeout-body header .message {
+		margin: 16px 0 0;
+		opacity: 0.9;
+		font-size: 0.92rem;
+		line-height: 1.55;
+	}
+	.myappx-timeout-body header .message .en {
+		display: block;
+		margin-top: 6px;
+		font-size: 0.88rem;
+		opacity: 0.85;
+	}
 	.myappx-timeout-body .badge {
 		display: inline-block;
 		margin-top: 14px;
@@ -100,17 +112,6 @@
 		padding: 24px 28px;
 		margin-bottom: 16px;
 		box-shadow: var(--shadow);
-	}
-	.myappx-timeout-body section .message {
-		margin: 0;
-		color: var(--muted);
-		font-size: 0.94rem;
-	}
-	.myappx-timeout-body section .message .en {
-		display: block;
-		margin-top: 8px;
-		font-size: 0.9rem;
-		opacity: 0.9;
 	}
 	.myappx-timeout-body .action-panel {
 		background: var(--surface);
@@ -163,11 +164,6 @@
 		color: #243b6b;
 		font-size: 0.92rem;
 	}
-	.myappx-timeout-body footer {
-		text-align: center;
-		color: var(--muted);
-		font-size: 0.85rem;
-	}
 ]]>
 </n:style>
 
@@ -180,12 +176,9 @@
 				您的登录会话已结束，请重新登录以继续使用。
 				<n:span class="en">Your session has ended. Please sign in again to continue.</n:span>
 			</n:p>
+			<div id="timeoutText" sclass="message"/>
 			<n:span class="badge">Session Timeout · 会话超时</n:span>
 		</n:header>
-
-		<n:section>
-			<div id="timeoutText" sclass="message"/>
-		</n:section>
 
 		<n:div class="action-panel">
 			<n:p class="hint">
@@ -202,8 +195,6 @@
 				<n:span class="en">If inactive for too long, the system ends your session for security. Unsaved data may have been lost.</n:span>
 			</n:div>
 		</n:section>
-
-		<n:footer>MyAppx Server</n:footer>
 	</n:div>
 </n:div>
 
