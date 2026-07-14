@@ -42,3 +42,4 @@ out/
 partial-runtime/
 org.idempiere.karaf/
 docs/
+org.adempiere.server/myappx-extension-repository/main/

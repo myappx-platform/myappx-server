@@ -1,0 +1,2 @@
+# Published extension bundles (copied by publish-to-server.bat)
+myappx-extension-repository/main/bundles/*.jar
