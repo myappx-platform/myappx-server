@@ -49,7 +49,7 @@ import org.compiere.util.Util;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
-import org.osgi.framework.wiring.BundleRevision;
+import org.osgi.framework.Constants;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.event.Events;
@@ -200,11 +200,7 @@ public class WPluginManager extends ADForm implements EventListener<Event> {
 		if (bundle == null)
 			return;
 		int state = bundle.getState();
-		boolean isFragment = false;
-		BundleRevision rev = bundle.adapt(BundleRevision.class);
-		if (rev != null) {
-			isFragment = (rev.getTypes() & BundleRevision.TYPE_FRAGMENT) != 0;
-		}
+		boolean isFragment = bundle.getHeaders().get(Constants.FRAGMENT_HOST) != null;
 		/*
 		 * boolean hasFragments = false; if (!isFragment) { if (rev.getWiring() != null)
 		 * { if (rev.getWiring().getProvidedWires(BundleRevision.HOST_NAMESPACE).size()

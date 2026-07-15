@@ -67,6 +67,7 @@ import org.compiere.util.Msg;
 import org.idempiere.extension.manager.ExtensionManagerActivator;
 import org.idempiere.extension.manager.event.PackageImpDelegate;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.Constants;
 import org.osgi.framework.Version;
 import org.osgi.framework.VersionRange;
 
@@ -215,7 +216,7 @@ public class ExtensionBrowserService {
 					if (symbolicName.equals(bundle.getSymbolicName())) {
 						try {
 							if (bundle.getState() != Bundle.UNINSTALLED) {
-								if (bundle.getState() == Bundle.ACTIVE) {
+								if (bundle.getState() == Bundle.ACTIVE && !isFragment(bundle)) {
 									bundle.stop();
 								}
 								bundle.uninstall();
@@ -330,7 +331,9 @@ public class ExtensionBrowserService {
 					String symbolicName = b.get("symbolicName").getAsString();
 					for (Bundle bundle : ExtensionManagerActivator.context.getBundles()) {
 						if (symbolicName.equals(bundle.getSymbolicName())) {
-							bundle.stop();
+							if (!isFragment(bundle)) {
+								bundle.stop();
+							}
 						}
 					}
 				}
@@ -400,7 +403,9 @@ public class ExtensionBrowserService {
 					String symbolicName = b.get("symbolicName").getAsString();
 					for (Bundle bundle : ExtensionManagerActivator.context.getBundles()) {
 						if (symbolicName.equals(bundle.getSymbolicName())) {
-							bundle.start();
+							if (!isFragment(bundle)) {
+								bundle.start();
+							}
 						}
 					}
 				}
@@ -673,7 +678,7 @@ public class ExtensionBrowserService {
 							}
 							// If exists and is not newer, uninstall it
 							try {
-								if (bundle.getState() == Bundle.ACTIVE) {
+								if (bundle.getState() == Bundle.ACTIVE && !isFragment(bundle)) {
 									bundle.stop();
 								}
 								bundle.uninstall();
@@ -933,9 +938,13 @@ public class ExtensionBrowserService {
 			if (entries != null && entries.hasMoreElements()) {
 				twoPackBundles.add(bundle.getSymbolicName());
 			}
-			if (statusCallback != null)
-				statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "StartingExtensionBundle", new Object[]{bundle.getSymbolicName()}));
-			bundle.start();			
+			if (statusCallback != null && !isFragment(bundle)) {
+				statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "StartingExtensionBundle",
+						new Object[] { bundle.getSymbolicName() }));
+			}
+			if (!isFragment(bundle)) {
+				bundle.start();
+			}
 		}
 
 		if (twoPackBundles.size() > 0) {
@@ -1026,6 +1035,10 @@ public class ExtensionBrowserService {
 			hexString.append(hex);
 		}
 		return hexString.toString();
+	}
+
+	private static boolean isFragment(Bundle bundle) {
+		return bundle.getHeaders().get(Constants.FRAGMENT_HOST) != null;
 	}
 
 }
