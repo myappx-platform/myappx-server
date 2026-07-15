@@ -59,7 +59,9 @@ public class CLogFilter implements Filter
 	{
 		String loggerName = record.getLoggerName();
 		if ("org.eclipse.jetty.annotations.AnnotationParser".equals(loggerName)
-			|| "org.eclipse.jetty.annotations.ClassInheritanceHandler".equals(loggerName))
+			|| "org.eclipse.jetty.annotations.ClassInheritanceHandler".equals(loggerName)
+			|| "org.eclipse.jetty.ee8.annotations.AnnotationParser".equals(loggerName)
+			|| "org.eclipse.jetty.ee8.osgi.annotations.AnnotationParser".equals(loggerName))
 			return false;
 		
 		if (record.getLevel() == Level.SEVERE

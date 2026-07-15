@@ -9,7 +9,7 @@
 -- Sections:
 --   1. System info (AD_System)
 --   2. MyAppx sysconfig inserts (branding, UI, desktop pre-auth)
---   3. Sysconfig updates (login, ZK UI, session, tenant messages)
+--   3. Sysconfig updates (login, ZK UI, session, tenant messages, 2Pack DDL)
 --   4. User reset (system / superuser / GardenWorld demo)
 --   5. UI customization (toolbar, dashboard)
 --   6. Locale (country, currency, language)
@@ -110,6 +110,7 @@ WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'MYAPPX_DESKTOP_PREAUT
 
 -- Setup AD_SYSCONFIG - Update existing configuration values
 -- Overrides standard iDempiere defaults for MyAppx UX (email login, paging, upload, session 2h, etc.)
+-- 2PACK_COMMIT_DDL=Y: commit DDL between 2Pack column steps on PostgreSQL (required for extension/plugin table creation)
 UPDATE ad_sysconfig 
 SET value = CASE name
     WHEN 'USE_EMAIL_FOR_LOGIN' THEN 'N'
@@ -122,6 +123,7 @@ SET value = CASE name
     WHEN 'LOGIN_SHOW_RESETPASSWORD' THEN 'N'
     WHEN 'START_VALUE_BPLOCATION_NAME' THEN '3'
     WHEN 'MESSAGES_AT_TENANT_LEVEL' THEN 'Y'
+    WHEN '2PACK_COMMIT_DDL' THEN 'Y'
     ELSE value
 END,
     updated = statement_timestamp(),
@@ -136,7 +138,8 @@ WHERE name IN (
     'ZK_SESSION_TIMEOUT_IN_SECONDS',
     'LOGIN_SHOW_RESETPASSWORD',
     'START_VALUE_BPLOCATION_NAME',
-    'MESSAGES_AT_TENANT_LEVEL'
+    'MESSAGES_AT_TENANT_LEVEL',
+    '2PACK_COMMIT_DDL'
 );
 
 -- Setup User

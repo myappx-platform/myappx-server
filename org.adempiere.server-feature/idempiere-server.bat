@@ -35,6 +35,7 @@ FOR %%c in (plugins\org.eclipse.equinox.launcher_1.*.jar) DO set JARFILE=%%c
 @Set VMOPTS=%VMOPTS% -Dmail.mime.encodeparameters=true
 @Set VMOPTS=%VMOPTS% -Dmail.mime.decodeparameters=true
 @Set VMOPTS=%VMOPTS% -DIDEMPIERE_EXTENSION_REPOSITORY=%IDEMPIERE_EXTENSION_REPOSITORY%
-@Set VMOPTS=%VMOPTS% -Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF
+@Set VMOPTS=%VMOPTS% -Dorg.eclipse.jetty.ee8.annotations.AnnotationParser.LEVEL=OFF
+@Set VMOPTS=%VMOPTS% -Dorg.eclipse.jetty.ee8.osgi.annotations.AnnotationParser.LEVEL=OFF
 
 @"%JAVA%" %IDEMPIERE_JAVA_OPTIONS% %VMOPTS% -jar %JARFILE% -application org.adempiere.server.application
