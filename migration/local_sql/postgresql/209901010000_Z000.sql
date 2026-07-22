@@ -191,6 +191,15 @@ UPDATE ad_language
 SET issystemlanguage = 'Y', isloginlocale = 'Y', updated = statement_timestamp(), updatedby = 100
 WHERE ad_language = 'zh_CN';
 
+-- Global menu search: match AD_Menu names across configured languages (Alt+G)
+INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
+SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'ENABLE_MULTILANG_MENU_SEARCH', 'Y', 'Enable cross-language menu search in global search (Y/N)', 'A', 'S', generate_uuid()
+WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'ENABLE_MULTILANG_MENU_SEARCH' AND ad_client_id = 0);
+
+INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
+SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'MULTILANG_MENU_SEARCH_LANGUAGES', 'en_US,zh_CN', 'Comma-separated AD_Language codes for alternate menu search labels', 'A', 'S', generate_uuid()
+WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'MULTILANG_MENU_SEARCH_LANGUAGES' AND ad_client_id = 0);
+
 -- Add new base-language xx_XX
 -- Placeholder for a future custom base language (replace xx_XX with real code).
 -- 1. Add new language xx_XX

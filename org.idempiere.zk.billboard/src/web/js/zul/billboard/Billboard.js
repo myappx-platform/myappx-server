@@ -105,7 +105,7 @@
 					for ( var i = 0, len = data.length; i < len; i++) {
 						seriesData.push(data[i]['value']);
 					}
-				} else if( this.getType() == 'pie' || this.getType() == 'donut') {
+				} else if( this.getType() == 'pie' || this.getType() == 'donut' || this.getType() == 'treemap') {
 					for ( var i = 0, len = data.length; i < len; i++) {
 						seriesData.push([data[i]['category'], data[i]['value']]);
 					}
@@ -168,7 +168,7 @@
 				}
 				
 				// Horizontal or Vertical ?
-				if(this.getType() != 'pie' && this.getType() != 'gauge' && this.getType() != 'donut') {
+				if(this.getType() != 'pie' && this.getType() != 'gauge' && this.getType() != 'donut' && this.getType() != 'treemap') {
 					var axisRenderer = this.getTimeSeries() ? "timeseries" : "category";
 					
 					// Vertical
