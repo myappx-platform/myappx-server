@@ -279,7 +279,7 @@ public class DefaultDesktop extends TabbedDesktop implements MenuListener, Seria
 				updateHelpCollapsedPreference(!oe.isOpen());
 				HtmlBasedComponent comp = windowContainer.getComponent();
 				if (comp != null) {
-					contextHelp.setVisible(false);
+					contextHelp.setVisible(!oe.isOpen());
 					if (!oe.isOpen())
 						layout.getEast().setVisible(false);
 				}
@@ -446,7 +446,7 @@ public class DefaultDesktop extends TabbedDesktop implements MenuListener, Seria
         contextHelp.addEventListener(Events.ON_CLICK, this);
         contextHelp.setSclass("window-container-toolbar-btn context-help-btn");
         contextHelp.setTooltiptext(Util.cleanAmp(Msg.getElement(Env.getCtx(), "AD_CtxHelp_ID")));
-        contextHelp.setVisible(false);
+        contextHelp.setVisible(!e.isVisible());
         isQuickInfoOpen = e.isVisible();
         
         if (!mobile) {

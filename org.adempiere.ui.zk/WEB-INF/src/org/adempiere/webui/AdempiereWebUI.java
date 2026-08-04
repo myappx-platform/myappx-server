@@ -85,6 +85,8 @@ import org.zkoss.zk.ui.sys.WebAppCtrl;
 import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zul.Style;
 import org.zkoss.zul.Window;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkUtil;
 
 /**
  * Entry point for iDempiere web client (index.zul)
@@ -480,7 +482,9 @@ public class AdempiereWebUI extends Window implements EventListener<Event>, IWeb
     }
 
     /**
-     * Create IDesktop instance. Default is {@link DefaultDesktop}
+     * Create IDesktop instance. Default is {@link DefaultDesktop}.
+     * Loads {@link MSysConfig#ZK_DESKTOP_CLASS} from the webui classloader first,
+     * then from OSGi bundles (so plugin desktops like AI Copilot work).
      * @return {@link IDesktop}
      */
     private IDesktop createDesktop()
@@ -491,12 +495,13 @@ public class AdempiereWebUI extends Window implements EventListener<Event>, IWeb
 		{
 			try
 			{
-				Class<?> clazz = this.getClass().getClassLoader().loadClass(className);
-				appDesktop = (IDesktop) clazz.getDeclaredConstructor().newInstance();
+				Class<?> clazz = loadDesktopClass(className.trim());
+				if (clazz != null)
+					appDesktop = (IDesktop) clazz.getDeclaredConstructor().newInstance();
 			}
 			catch (Throwable t)
 			{
-				logger.warning("Failed to instantiate desktop. Class=" + className);
+				logger.warning("Failed to instantiate desktop. Class=" + className + " Err=" + t.getMessage());
 			}
 		}
 		//fallback to default
@@ -504,6 +509,33 @@ public class AdempiereWebUI extends Window implements EventListener<Event>, IWeb
 			appDesktop = new DefaultDesktop();
 		
 		return appDesktop;
+	}
+
+	/**
+	 * Resolve a desktop implementation class from the webui classloader or any OSGi bundle.
+	 */
+	private Class<?> loadDesktopClass(String className) {
+		try {
+			return this.getClass().getClassLoader().loadClass(className);
+		} catch (ClassNotFoundException ignored) {
+			// try OSGi bundles below
+		}
+		Bundle self = FrameworkUtil.getBundle(AdempiereWebUI.class);
+		if (self == null || self.getBundleContext() == null) {
+			return null;
+		}
+		for (Bundle bundle : self.getBundleContext().getBundles()) {
+			if (bundle.getState() != Bundle.ACTIVE && bundle.getState() != Bundle.RESOLVED
+					&& bundle.getState() != Bundle.STARTING) {
+				continue;
+			}
+			try {
+				return bundle.loadClass(className);
+			} catch (ClassNotFoundException | IllegalStateException ignored) {
+				// next bundle
+			}
+		}
+		return null;
 	}
 
 	/* (non-Javadoc)
