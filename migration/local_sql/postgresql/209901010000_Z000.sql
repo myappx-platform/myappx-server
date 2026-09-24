@@ -43,7 +43,7 @@ WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'PDF_FONT_DIR' AND ad_
 
 -- STANDARD_REPORT_FOOTER_TRADEMARK_TEXT: report PDF footer (replaces default iDempiere®)
 INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
-SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'STANDARD_REPORT_FOOTER_TRADEMARK_TEXT', 'MyEDI', 'Trademark text on standard report footer', 'A', 'S', generate_uuid()
+SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'STANDARD_REPORT_FOOTER_TRADEMARK_TEXT', 'MyAppx', 'Trademark text on standard report footer', 'A', 'S', generate_uuid()
 WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'STANDARD_REPORT_FOOTER_TRADEMARK_TEXT' AND ad_client_id = 0);
 
 -- ZK_* branding: iceblue_c theme logos, favicon, browser tab title
@@ -60,7 +60,7 @@ SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp()
 WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'ZK_BROWSER_ICON' AND ad_client_id = 0);
 
 INSERT INTO ad_sysconfig(ad_sysconfig_id, ad_client_id, ad_org_id, created, updated, createdby, updatedby, isactive, name, value, description, entitytype, configurationlevel, ad_sysconfig_uu)
-SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'ZK_BROWSER_TITLE', 'MyEDI ...', '', 'A', 'S', generate_uuid()
+SELECT nextidfunc(50009,'N'), 0, 0, statement_timestamp(), statement_timestamp(), 100, 100, 'Y', 'ZK_BROWSER_TITLE', 'MyAppx ...', '', 'A', 'S', generate_uuid()
 WHERE NOT EXISTS (SELECT 1 FROM ad_sysconfig WHERE name = 'ZK_BROWSER_TITLE' AND ad_client_id = 0);
 
 -- APPLICATION_*_SHOWN = N: hide version/vendor/DB/JVM/OS/host on login/about (cleaner UX)
