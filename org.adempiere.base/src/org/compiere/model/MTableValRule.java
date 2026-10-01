@@ -26,6 +26,8 @@
 package org.compiere.model;
 
 import java.sql.ResultSet;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Properties;
 
@@ -163,12 +165,13 @@ public class MTableValRule extends X_AD_TableValRule implements ImmutablePOSuppo
 
 	/**
 	 * Get Rules applicable to session
+	 * Priority: User-specific > Role-specific > General (empty Role/User)
 	 * @param ctx
 	 * @param AD_Table_ID
 	 * @param AD_Client_ID
 	 * @param AD_Role_ID
 	 * @param AD_User_ID
-	 * @return List of MTableValRule
+	 * @return List of MTableValRule (sorted by priority, most specific first)
 	 */
 	public static List<MTableValRule> get(Properties ctx, int AD_Table_ID, int AD_Client_ID, int AD_Role_ID, int AD_User_ID) {
 		String keySession = new StringBuilder()
@@ -185,8 +188,58 @@ public class MTableValRule extends X_AD_TableValRule implements ImmutablePOSuppo
 				.setOnlyActiveRecords(true)
 				.setParameters(AD_Table_ID, AD_Client_ID, AD_Role_ID, AD_User_ID)
 				.list();
+		
+		// Sort by priority: User-specific > Role-specific > General (empty Role/User)
+		// More specific rules should have higher priority
+		Collections.sort(retValue, new Comparator<MTableValRule>() {
+			@Override
+			public int compare(MTableValRule o1, MTableValRule o2) {
+				return comparePriority(o1, o2);
+			}
+		});
+		
 		s_cachesession.put(keySession, retValue);
 		return retValue;
+	}
+
+	/**
+	 * Compare priority between two rules.
+	 * Priority order: User-specific > Role-specific > General (empty Role/User)
+	 * 
+	 * This follows the same principle as Tab Customization and other configuration features:
+	 * more specific configurations (with User or Role) should take precedence over general ones.
+	 * 
+	 * Priority levels:
+	 * 1. User-specific: AD_User_ID > 0 (highest priority)
+	 * 2. Role-specific: AD_User_ID = 0 AND AD_Role_ID > 0 (medium priority)
+	 * 3. General: AD_User_ID = 0 AND AD_Role_ID = 0 (lowest priority)
+	 * 
+	 * @param rule1 first rule to compare
+	 * @param rule2 second rule to compare
+	 * @return negative if rule1 has higher priority, positive if rule2 has higher priority, 0 if same priority
+	 */
+	private static int comparePriority(MTableValRule rule1, MTableValRule rule2) {
+		// Calculate priority level for each rule (lower number = higher priority)
+		int priority1 = getPriorityLevel(rule1);
+		int priority2 = getPriorityLevel(rule2);
+		
+		// Compare: lower priority level number means higher priority
+		return priority1 - priority2;
+	}
+	
+	/**
+	 * Get priority level for a rule.
+	 * Lower number means higher priority.
+	 * 
+	 * @param rule the rule to evaluate
+	 * @return priority level: 1=User-specific, 2=Role-specific, 3=General
+	 */
+	private static int getPriorityLevel(MTableValRule rule) {
+		if (rule.getAD_User_ID() > 0)
+			return 1; // User-specific: highest priority
+		if (rule.getAD_Role_ID() > 0)
+			return 2; // Role-specific: medium priority
+		return 3; // General: lowest priority
 	}
 
 	@Override

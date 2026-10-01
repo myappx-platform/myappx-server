@@ -302,7 +302,7 @@ public class Billboard extends XulElement {
 			json.put("value", new double[]{dialModel.getValue(0)});
 			list.add(json);
 		}
-		else if ("pie".equals(_type) || "donut".equals(_type)) {
+		else if ("pie".equals(_type) || "donut".equals(_type) || "treemap".equals(_type)) {
 			PieModel tempModel = (PieModel) model;
 			for (int i = 0; i < tempModel.getCategories().size(); i++) {
 				Comparable category = tempModel.getCategory(i);
@@ -352,7 +352,7 @@ public class Billboard extends XulElement {
 	
 	//supported chart type
 	private static final List<Object> _VALID_TYPES = Arrays.asList(new Object[] {
-		"pie", "line", "bar", "area", "stacked_bar", "stacked_area", "gauge", "donut", "waterfall"
+		"pie", "line", "bar", "area", "stacked_bar", "stacked_area", "gauge", "donut", "treemap", "waterfall"
 	});
 	
 	private static boolean isValid(String type) {

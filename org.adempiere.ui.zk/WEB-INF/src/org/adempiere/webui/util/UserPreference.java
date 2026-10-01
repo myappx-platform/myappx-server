@@ -65,7 +65,7 @@ public final class UserPreference implements Serializable {
 	
 	/** Help Panel Collapsed **/
 	public static final String P_HELP_COLLAPSED = "HelpCollapsed";
-	public static final String DEFAULT_HELP_COLLAPSED = "N";
+	public static final String DEFAULT_HELP_COLLAPSED = "Y";
 	
 	/** Header Collapsed **/
 	public static final String P_HEADER_COLLAPSED = "HeaderCollapsed";

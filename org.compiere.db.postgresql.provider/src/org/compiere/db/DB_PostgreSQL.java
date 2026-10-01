@@ -128,6 +128,8 @@ public class DB_PostgreSQL implements AdempiereDatabase
 	private Convert_PostgreSQL         m_convert = new Convert_PostgreSQL();
 	/** Cached Database Name	*/
 	private String			m_dbName = null;
+	/** Cached JDBC schema (resolved from current_schema()) */
+	private volatile String	m_schema = null;
 
     @SuppressWarnings("unused")
 	private String				m_userName = null;
@@ -274,13 +276,35 @@ public class DB_PostgreSQL implements AdempiereDatabase
 
 	/**
 	 * 	Get JDBC Schema
-	 *	@return schema (dbo)
+	 *	@return schema name used for DatabaseMetaData lookups
 	 */
 	public String getSchema()
 	{
-		//begin vpj-cd e-evolution 03/04/2005
-		return "adempiere";
-		//end vpj-cd e-evolution 03/04/2005
+		if (m_schema != null)
+			return m_schema;
+		synchronized (this) {
+			if (m_schema != null)
+				return m_schema;
+			try {
+				if (m_ds != null) {
+					try (Connection conn = m_ds.getConnection();
+							PreparedStatement pstmt = conn.prepareStatement("SELECT current_schema()");
+							ResultSet rs = pstmt.executeQuery()) {
+						if (rs.next()) {
+							String schema = rs.getString(1);
+							if (schema != null && !schema.isEmpty())
+								m_schema = schema;
+						}
+					}
+				}
+			} catch (Exception e) {
+				if (log.isLoggable(Level.FINE))
+					log.log(Level.FINE, "Could not resolve PostgreSQL schema", e);
+			}
+			if (m_schema == null)
+				m_schema = "adempiere";
+		}
+		return m_schema;
 	}	//	getSchema
 
 	/**

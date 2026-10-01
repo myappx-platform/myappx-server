@@ -1122,6 +1122,9 @@ public class CompositeADTabbox extends AbstractADTabbox
 				}
 			}
 		}
+		updateDetailPaneToolbar(
+				tabPanel.needSave(true, false) || tabPanel.getGridTab().isNew(),
+				tabPanel.getGridTab().isReadOnly());
 	}
 
 	/**

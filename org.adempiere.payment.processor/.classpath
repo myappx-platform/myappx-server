@@ -12,9 +12,9 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry exported="true" kind="lib" path="lib/jpayment.jar"/>
-	<classpathentry exported="true" kind="lib" path="lib/payflow.jar"/>
-	<classpathentry exported="true" kind="lib" path="lib/Verisign.jar"/>
+	<classpathentry exported="true" kind="lib" path="libx/jpayment.jar"/>
+	<classpathentry exported="true" kind="lib" path="libx/payflow.jar"/>
+	<classpathentry exported="true" kind="lib" path="libx/Verisign.jar"/>
 	<classpathentry kind="con" path="org.eclipse.m2e.MAVEN2_CLASSPATH_CONTAINER">
 		<attributes>
 			<attribute name="maven.pomderived" value="true"/>

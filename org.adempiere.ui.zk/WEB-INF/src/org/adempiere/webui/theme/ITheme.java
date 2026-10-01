@@ -43,6 +43,8 @@ public interface ITheme {
 	public static final String LOGIN_LOGO_IMAGE = "/images/login-logo.png";
 	public static final String HEADER_LOGO_IMAGE = "/images/header-logo.png";
 	public static final String BROWSER_ICON_IMAGE= "/images/icon.png";
+	public static final String VENDOR_LOGO_IMAGE = "/images/vendor-logo.png";
+	public static final String POWEREDBY_IDEMPIERE_IMAGE = "/images/powered-by-idempiere.jpg";
 
 	//stylesheet url
 	public static final String THEME_STYLESHEET = "/css/theme.css.dsp";

@@ -52,6 +52,7 @@ import org.adempiere.webui.util.ZKUpdateUtil;
 import org.compiere.Adempiere;
 import org.compiere.model.MRole;
 import org.compiere.model.MUser;
+import org.compiere.model.SystemIDs;
 import org.compiere.util.CLogErrorBuffer;
 import org.compiere.util.CLogMgt;
 import org.compiere.util.CLogger;
@@ -116,7 +117,24 @@ public class AboutWindow extends Window implements EventListener<Event> {
 	 */
 	public AboutWindow() {
 		super();
+		if (!isAdministrator())
+			return;
 		init();
+	}
+
+	/**
+	 * @return true if the logged-in role is System Administrator
+	 */
+	private static boolean isAdministrator() {
+		MRole role = MRole.getDefault(Env.getCtx(), false);
+		return role != null && role.getAD_Role_ID() == SystemIDs.ROLE_SYSTEM;
+	}
+
+	@Override
+	public void doHighlighted() {
+		if (!isAdministrator())
+			return;
+		super.doHighlighted();
 	}
 
 	/**
@@ -444,17 +462,26 @@ public class AboutWindow extends Window implements EventListener<Event> {
 		vbox.setParent(vb);
 		
 		Image image = new Image(ThemeManager.getLargeLogo());
+		ZKUpdateUtil.setWidth(image, "369px");
+		ZKUpdateUtil.setHeight(image, "80px");
 		image.setParent(vbox);
-
+		
+		Text text = new Text("Powered by iDempiere");
+		text.setParent(vbox);
+		Separator separator = new Separator();
+		separator.setParent(vbox);
+		
+		image = new Image(ThemeManager.getPoweredByIdempiereLogo());
+		image.setParent(vbox);
 		vbox = new FlexVlayout();
 		LayoutUtils.addSclass("about-main-panel-version", vbox);
 		ZKUpdateUtil.setWidth(vbox, "100%");
 		vbox.setAlign(FlexVlayout.AlignType.CENTER);
 		vbox.setParent(vb);
 		
-		Text text = new Text(Adempiere.getSubtitle());
+		text = new Text(Adempiere.getSubtitle());
 		text.setParent(vbox);
-		Separator separator = new Separator();
+		separator = new Separator();
 		separator.setParent(vbox);
 		text = new Text(Adempiere.getVersion());
 		text.setParent(vbox);

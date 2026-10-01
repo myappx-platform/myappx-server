@@ -30,6 +30,8 @@ import org.adempiere.webui.util.Icon;
 import org.adempiere.webui.util.ZKUpdateUtil;
 import org.adempiere.webui.window.AboutWindow;
 import org.compiere.model.MQuery;
+import org.compiere.model.MRole;
+import org.compiere.model.SystemIDs;
 import org.compiere.util.Env;
 import org.compiere.util.Msg;
 import org.compiere.util.Util;
@@ -87,7 +89,8 @@ public class HeaderPanel extends Panel implements EventListener<Event>
     	image = (Image) getFellow("logo");
     	image.setSrc(ThemeManager.getSmallLogo());
     	image.addEventListener(Events.ON_CLICK, this);
-    	image.setStyle("cursor: pointer;");
+    	if (isAdministratorRole())
+    		image.setStyle("cursor: pointer;");
 
     	createPopupMenu();
     	
@@ -145,6 +148,8 @@ public class HeaderPanel extends Panel implements EventListener<Event>
 		if (Events.ON_CLICK.equals(event.getName())) {
 			if(event.getTarget() == image)
 			{
+				if (!isAdministratorRole())
+					return;
 				AboutWindow w = new AboutWindow();
 				w.setPage(this.getPage());
 				w.doHighlighted();
@@ -212,6 +217,14 @@ public class HeaderPanel extends Panel implements EventListener<Event>
 		return image;
 	}
 	
+	/**
+	 * @return true if current role is System Administrator
+	 */
+	private boolean isAdministratorRole() {
+		MRole role = MRole.getDefault(Env.getCtx(), false);
+		return role != null && role.getAD_Role_ID() == SystemIDs.ROLE_SYSTEM;
+	}
+
 	/**
 	 * Close popup for global search
 	 */

@@ -20,6 +20,22 @@
 	border-bottom: 0px;
 }
 
+.find-window .z-tabpanel {
+    background-color: var(--myappx-canvas);
+}
+
+.find-window .z-south-body {
+    background-color: var(--myappx-canvas);
+}
+
+.find-window .z-center-body {
+    background-color: var(--myappx-canvas);
+}
+
+.find-window .z-east-body {
+    background-color: var(--myappx-canvas);
+}
+
 /* Modern Popup Container */
 .modern-popup-container {
     background: var(--zk-find-window-popup-background-color);

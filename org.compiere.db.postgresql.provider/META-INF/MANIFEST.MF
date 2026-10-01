@@ -11,7 +11,17 @@ Require-Bundle: org.adempiere.base;bundle-version="14.0.0",
  com.zaxxer.HikariCP;bundle-version="7.0.2",
  org.postgresql.jdbc;bundle-version="42.7.8"
 Import-Package: org.osgi.framework;version="1.10.0",
- org.slf4j;version="2.0.12"
+ org.slf4j,
+ org.w3c.dom,
+ javax.crypto,
+ javax.crypto.spec,
+ javax.management,
+ javax.naming,
+ javax.net,
+ javax.net.ssl,
+ javax.security.sasl,
+ javax.sql,
+ javax.xml.parsers
 Bundle-ActivationPolicy: lazy
 Bundle-Activator: org.adempiere.db.postgresql.PostgreSQLBundleActivator
 Service-Component: OSGI-INF/*.xml

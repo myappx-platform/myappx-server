@@ -13,9 +13,13 @@
  *****************************************************************************/
 package org.adempiere.webui.apps;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.adempiere.webui.LayoutUtils;
 import org.adempiere.webui.component.Label;
@@ -34,10 +38,12 @@ import org.adempiere.webui.util.TreeUtils;
 import org.adempiere.webui.util.ZKUpdateUtil;
 import org.compiere.model.MMenu;
 import org.compiere.model.MPreference;
+import org.compiere.model.MSysConfig;
 import org.compiere.model.MToolBarButtonRestrict;
 import org.compiere.model.MTreeNode;
 import org.compiere.model.Query;
 import org.compiere.model.SystemIDs;
+import org.compiere.util.DB;
 import org.compiere.util.Env;
 import org.compiere.util.Msg;
 import org.compiere.util.Util;
@@ -72,6 +78,9 @@ import org.zkoss.zul.impl.LabelImageElement;
  * @author hengsin
  */
 public class MenuSearchController implements EventListener<Event>{
+
+	/** Default alternate languages when {@link MSysConfig#MULTILANG_MENU_SEARCH_LANGUAGES} is unset */
+	private static final String DEFAULT_MULTILANG_SEARCH_LANGUAGES = "en_US,zh_CN";
 
 	/** Initial number of menu items loaded into listbox */
 	private static final int INITIAL_LOADING_SIZE = 50;
@@ -110,6 +119,9 @@ public class MenuSearchController implements EventListener<Event>{
 
 	/** List of recently access menu items (AD_Menu_ID) */
 	private List<String> recentMenuItemIds = new ArrayList<>();
+
+	/** AD_Menu_ID to alternate language menu names for cross-language search */
+	private Map<Integer, List<String>> altLabelsMap = new HashMap<>();
 	
 	/** Event post from {@link #selectTreeitem(Object, Boolean)} **/
 	private static final String ON_POST_SELECT_TREEITEM_EVENT = "onPostSelectTreeitem";
@@ -178,6 +190,213 @@ public class MenuSearchController implements EventListener<Event>{
 		model = new ListModelList<MenuItem>(list, true);
 		sortMenuItemModel();		
 		moveRecentItems();
+		loadAlternativeLabels();
+	}
+
+	/**
+	 * @return true when cross-language menu search is enabled via {@link MSysConfig#ENABLE_MULTILANG_MENU_SEARCH}
+	 */
+	private boolean isMultilangMenuSearchEnabled() {
+		return MSysConfig.getBooleanValue(MSysConfig.ENABLE_MULTILANG_MENU_SEARCH, true,
+				Env.getAD_Client_ID(Env.getCtx()));
+	}
+
+	/**
+	 * @return configured alternate language codes for menu search
+	 */
+	private List<String> getMultilangSearchLanguages() {
+		String configured = MSysConfig.getValue(MSysConfig.MULTILANG_MENU_SEARCH_LANGUAGES,
+				DEFAULT_MULTILANG_SEARCH_LANGUAGES, Env.getAD_Client_ID(Env.getCtx()));
+		List<String> languages = new ArrayList<>();
+		if (Util.isEmpty(configured))
+			return languages;
+		for (String lang : configured.split(",")) {
+			String trimmed = lang.trim();
+			if (!Util.isEmpty(trimmed))
+				languages.add(trimmed);
+		}
+		return languages;
+	}
+
+	/**
+	 * Load menu names from configured languages (except current session language)
+	 * into {@link #altLabelsMap} for cross-language search.
+	 */
+	private void loadAlternativeLabels() {
+		altLabelsMap.clear();
+		if (!isMultilangMenuSearchEnabled())
+			return;
+
+		String currentLang = Env.getAD_Language(Env.getCtx());
+		List<String> languages = getMultilangSearchLanguages();
+
+		StringBuilder sql = new StringBuilder();
+		sql.append("SELECT AD_Menu_ID, Name FROM AD_Menu_Trl ");
+		sql.append("WHERE IsTranslated='Y' AND IsActive='Y' AND AD_Language != ?");
+		if (!languages.isEmpty()) {
+			sql.append(" AND AD_Language IN (");
+			for (int i = 0; i < languages.size(); i++) {
+				if (i > 0)
+					sql.append(",");
+				sql.append("?");
+			}
+			sql.append(")");
+		}
+
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		try {
+			pstmt = DB.prepareStatement(sql.toString(), null);
+			int param = 1;
+			pstmt.setString(param++, currentLang);
+			for (String lang : languages)
+				pstmt.setString(param++, lang);
+			rs = pstmt.executeQuery();
+			while (rs.next()) {
+				int menuId = rs.getInt(1);
+				String name = rs.getString(2);
+				if (!Util.isEmpty(name))
+					altLabelsMap.computeIfAbsent(menuId, k -> new ArrayList<>()).add(name);
+			}
+		} catch (Exception e) {
+			// fall back to current-language search only
+		} finally {
+			DB.close(rs, pstmt);
+		}
+
+		if (!Env.isBaseLanguage(Env.getCtx(), "AD_Menu")) {
+			pstmt = null;
+			rs = null;
+			try {
+				pstmt = DB.prepareStatement("SELECT AD_Menu_ID, Name FROM AD_Menu WHERE IsActive='Y'", null);
+				rs = pstmt.executeQuery();
+				while (rs.next()) {
+					int menuId = rs.getInt(1);
+					String name = rs.getString(2);
+					if (!Util.isEmpty(name))
+						altLabelsMap.computeIfAbsent(menuId, k -> new ArrayList<>()).add(name);
+				}
+			} catch (Exception e) {
+				// fall back to current-language search only
+			} finally {
+				DB.close(rs, pstmt);
+			}
+		}
+	}
+
+	/**
+	 * @param item menu item
+	 * @return AD_Menu_ID, or -1 if not extractable
+	 */
+	private int getMenuId(MenuItem item) {
+		if (item == null)
+			return -1;
+		Object data = item.getData();
+		if (data instanceof DefaultTreeNode) {
+			Object nodeData = ((DefaultTreeNode<?>) data).getData();
+			if (nodeData instanceof MTreeNode)
+				return ((MTreeNode) nodeData).getNode_ID();
+		} else if (data instanceof Treeitem) {
+			Object attr = ((Treeitem) data).getAttribute(M_TREE_NODE_ATTR);
+			if (attr instanceof MTreeNode)
+				return ((MTreeNode) attr).getNode_ID();
+		}
+		return -1;
+	}
+
+	/**
+	 * @param compare normalized search text
+	 * @param label candidate label
+	 * @return true if label matches compare using global search rules
+	 */
+	private boolean matchesLabel(String compare, String label) {
+		if (Util.isEmpty(label))
+			return false;
+		String normLabel = Util.deleteAccents(label.toLowerCase());
+		String normCompare = Util.deleteAccents(compare.toLowerCase());
+		if (normCompare.length() < 3)
+			return normLabel.startsWith(normCompare);
+		return normLabel.contains(normCompare);
+	}
+
+	/**
+	 * @param compare search text
+	 * @param item menu item
+	 * @return true if compare matches the current label or any alternate label
+	 */
+	private boolean matchesMenuItem(String compare, MenuItem item) {
+		if (item == null || Util.isEmpty(compare))
+			return false;
+		if (matchesLabel(compare, item.getLabel()))
+			return true;
+		if (!isMultilangMenuSearchEnabled())
+			return false;
+		int menuId = getMenuId(item);
+		if (menuId <= 0)
+			return false;
+		List<String> altLabels = altLabelsMap.get(menuId);
+		if (altLabels == null)
+			return false;
+		for (String alt : altLabels) {
+			if (matchesLabel(compare, alt))
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * @param item menu item
+	 * @param searchText search text
+	 * @return first alternate label that matches searchText, or null
+	 */
+	private String findFirstMatchingAltLabel(MenuItem item, String searchText) {
+		if (item == null || Util.isEmpty(searchText) || !isMultilangMenuSearchEnabled())
+			return null;
+		if (matchesLabel(searchText, item.getLabel()))
+			return null;
+		int menuId = getMenuId(item);
+		if (menuId <= 0)
+			return null;
+		List<String> altLabels = altLabelsMap.get(menuId);
+		if (altLabels == null)
+			return null;
+		for (String alt : altLabels) {
+			if (matchesLabel(searchText, alt))
+				return alt;
+		}
+		return null;
+	}
+
+	/**
+	 * Append highlighted segments for label into cell.
+	 * @param cell target cell
+	 * @param label text to render
+	 * @param searchText text to highlight
+	 */
+	private void appendHighlightedLabel(Listcell cell, String label, String searchText) {
+		cell.setLabel(" ");
+		String unaccentedLabel = Util.deleteAccents(label);
+		String matchString = Util.deleteAccents(searchText.toLowerCase());
+		int match = unaccentedLabel.toLowerCase().indexOf(matchString);
+		while (match >= 0) {
+			if (match > 0) {
+				cell.appendChild(new Label(label.substring(0, match)));
+				Label l = new Label(label.substring(match, match + matchString.length()));
+				LayoutUtils.addSclass("highlight", l);
+				cell.appendChild(l);
+				unaccentedLabel = unaccentedLabel.substring(match + matchString.length());
+				label = label.substring(match + matchString.length());
+			} else {
+				Label l = new Label(label.substring(0, matchString.length()));
+				LayoutUtils.addSclass("highlight", l);
+				cell.appendChild(l);
+				unaccentedLabel = unaccentedLabel.substring(matchString.length());
+				label = label.substring(matchString.length());
+			}
+			match = unaccentedLabel.toLowerCase().indexOf(matchString);
+		}
+		if (label.length() > 0)
+			cell.appendChild(new Label(label));
 	}
 
 	/**
@@ -585,23 +804,9 @@ public class MenuSearchController implements EventListener<Event>{
 		public int compare(MenuItem o1, MenuItem o2) {
 			if (o1 == null || o2 == null)
 				return -1;
-			
-			String label2 = o2.getLabel();
-			label2 = Util.deleteAccents(label2.toLowerCase());
-			
-			String compare = o1.getLabel();			
-			compare = Util.deleteAccents(compare.toLowerCase());
-			
-			boolean match = false;
-			if (compare.length() < 3)
-			{
-				match = label2.startsWith(compare);
-			}
-			else
-			{
-				match = label2.contains(compare);
-			} 
-			return match ? 0 : -1;
+
+			String compare = o1.getLabel();
+			return matchesMenuItem(compare, o2) ? 0 : -1;
 		}
 		
 	}
@@ -659,7 +864,6 @@ public class MenuSearchController implements EventListener<Event>{
 		String text = textbox.getText();
 		if (Util.isEmpty(text))
 			return false;
-		text = text.toLowerCase();
 		ListItem exact = null;
 		ListItem firstStart = null;
 		int count = listbox.getItemCount();
@@ -672,8 +876,29 @@ public class MenuSearchController implements EventListener<Event>{
 			if (label.equalsIgnoreCase(text)) {
 				exact = item;
 				break;
-			} else if (firstStart == null && label.toLowerCase().startsWith(text) && text.length() >= 3) {
-				firstStart = item;
+			}
+			if (exact == null && isMultilangMenuSearchEnabled()) {
+				int menuId = getMenuId(menuItem);
+				if (menuId > 0) {
+					List<String> altLabels = altLabelsMap.get(menuId);
+					if (altLabels != null) {
+						for (String alt : altLabels) {
+							if (alt.equalsIgnoreCase(text)) {
+								exact = item;
+								break;
+							}
+						}
+					}
+				}
+				if (exact != null)
+					break;
+			}
+			if (firstStart == null && text.length() >= 3) {
+				if (label.toLowerCase().startsWith(text.toLowerCase())) {
+					firstStart = item;
+				} else if (isMultilangMenuSearchEnabled() && matchesMenuItem(text, menuItem)) {
+					firstStart = item;
+				}
 			}
 		}
 		if (exact != null) {
@@ -729,37 +954,28 @@ public class MenuSearchController implements EventListener<Event>{
 				cell.setIconSclass(data.getImage());
 			}
 			
-			// Highlight search text
-			if (!Util.isEmpty(highlightText, true) && Util.deleteAccents(data.getLabel()).toLowerCase().contains(Util.deleteAccents(highlightText).toLowerCase())) {
-				// Space to maintain proper gap between icon and label
-				cell.setLabel(" ");
-				String label = data.getLabel();
-				String unaccentedLabel = Util.deleteAccents(label);
-				String matchString = Util.deleteAccents(highlightText.toLowerCase());
-				int match = unaccentedLabel.toLowerCase().indexOf(matchString);
-    			while (match >= 0) {
-    				if (match > 0) {
-    					cell.appendChild(new Label(label.substring(0, match)));
-    					Label l = new Label(label.substring(match, match+matchString.length()));
-    					LayoutUtils.addSclass("highlight", l);
-    					cell.appendChild(l);
-    					unaccentedLabel = unaccentedLabel.substring(match+matchString.length());
-    					label = label.substring(match+matchString.length());
-    				} else {
-    					Label l = new Label(label.substring(0, matchString.length()));
-    					LayoutUtils.addSclass("highlight", l);
-    					cell.appendChild(l);
-    					unaccentedLabel = unaccentedLabel.substring(matchString.length());
-    					label = label.substring(matchString.length());
-    				}
-    				match = unaccentedLabel.toLowerCase().indexOf(matchString);
-    			}
-    			if (label.length() > 0)
-    				cell.appendChild(new Label(label));
+			// Highlight search text on current label, or show matched alternate label
+			if (!Util.isEmpty(highlightText, true)) {
+				if (matchesLabel(highlightText, data.getLabel())) {
+					appendHighlightedLabel(cell, data.getLabel(), highlightText);
+				} else {
+					String matchedAlt = findFirstMatchingAltLabel(data, highlightText);
+					if (matchedAlt != null) {
+						cell.setLabel(" ");
+						cell.appendChild(new Label(data.getLabel()));
+						cell.appendChild(new Label(" · "));
+						Label altLabel = new Label(matchedAlt);
+						LayoutUtils.addSclass("highlight", altLabel);
+						cell.appendChild(altLabel);
+						String tooltip = data.getDescription();
+						cell.setTooltiptext(Util.isEmpty(tooltip) ? matchedAlt : tooltip + "\n" + matchedAlt);
+					}
+				}
 			}
 			
 			item.appendChild(cell);
-			cell.setTooltiptext(data.getDescription());
+			if (Util.isEmpty(cell.getTooltiptext()))
+				cell.setTooltiptext(data.getDescription());
 			item.setValue(data);
 			item.addEventListener(Events.ON_CLICK, MenuSearchController.this);
 			

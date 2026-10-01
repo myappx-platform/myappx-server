@@ -129,3 +129,28 @@ td.form-label-above-input.login-label .z-label,
 <%-- payment form --%>
 .payment-form-content {
 }
+
+.adform-content.z-window-content .z-north {
+	background: var(--myappx-canvas);
+}
+.adform-content.z-window-content .z-center {
+	background: var(--myappx-canvas);
+}
+.adform-content.z-window-content .z-south {
+	background: var(--myappx-canvas);
+}
+
+
+.adform-content.z-window-content .z-north-splitter {
+	background: var(--myappx-canvas);
+	border-bottom: 1px solid var(--myappx-border);
+}
+.adform-content.z-window-content .z-east-splitter {
+	background: var(--myappx-canvas);
+}
+.adform-content.z-window-content .z-west-splitter {
+	background: var(--myappx-canvas);
+}
+.adform-content.z-window-content .z-south-splitter {
+	background: var(--myappx-canvas);
+}

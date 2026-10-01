@@ -363,6 +363,10 @@ public class GridTabVO implements Evaluatee, Serializable
 	public static void loadUserDefTab(GridTabVO vo) {
 		MUserDefTab userDef = MUserDefTab.get(vo.ctx, vo.AD_Tab_ID, vo.AD_Window_ID);
 		if (userDef != null) {
+			// Save original base tab values before applying user def tab customization
+			boolean baseTabIsInsertRecord = vo.IsInsertRecord;
+			boolean baseTabIsReadOnly = vo.IsReadOnly;
+			
 			if(!Util.isEmpty(userDef.getName()))
 				vo.Name = userDef.getName();			
 			if(!Util.isEmpty(userDef.getDeleteConfirmationLogic()))
@@ -371,12 +375,28 @@ public class GridTabVO implements Evaluatee, Serializable
 				vo.DisplayLogic = userDef.getDisplayLogic();
 			if (userDef.getIsReadOnly() != null)
 				vo.IsReadOnly = MUserDefTab.ISREADONLY_Yes.equals(userDef.getIsReadOnly());
-			if (userDef.getReadOnlyLogic() != null)
+			if (userDef.getReadOnlyLogic() != null) {
 				vo.ReadOnlyLogic = userDef.getReadOnlyLogic();
+				vo.userDefReadOnlyLogicApplied = true;
+			}
 			if (userDef.getDescription() != null)
 				vo.Description = userDef.getDescription();
 			if (userDef.getHelp() != null)
 				vo.Help = userDef.getHelp();
+			// IsInsertRecord: Only apply user def tab customization if base tab allows it
+			// Priority rules:
+			// 1. If base tab IsInsertRecord is N, cannot insert regardless of user def tab setting
+			// 2. If base tab IsReadOnly is Y, cannot insert regardless of user def tab setting
+			// 3. Otherwise, apply user def tab IsInsertRecord setting if provided
+			if (!baseTabIsInsertRecord || baseTabIsReadOnly) {
+				// Base tab doesn't allow insert, so force it to false
+				vo.IsInsertRecord = false;
+			} else if (userDef.getIsInsertRecord() != null) {
+				// Base tab allows insert, apply user def tab setting
+				vo.IsInsertRecord = X_AD_UserDef_Tab.ISINSERTRECORD_Yes.equals(userDef.getIsInsertRecord());
+				vo.userDefIsInsertRecordExplicit = true;
+			}
+			vo.hasUserDefTab = true;
 			if (userDef.getIsSingleRow() != null)
 				vo.IsSingleRow = MUserDefTab.ISSINGLEROW_Yes.equals(userDef.getIsSingleRow());
 			if (!Util.isEmpty(userDef.getIsHighVolume()))
@@ -575,6 +595,12 @@ public class GridTabVO implements Evaluatee, Serializable
 	public  boolean     IsReadOnly = false;
 	/** Insert Record	*/
 	public 	boolean		IsInsertRecord = true;
+	/** User Define Tab customization applied for this tab */
+	public  boolean     hasUserDefTab = false;
+	/** User Define Tab IsInsertRecord is explicit (Y/N), not NULL inherit */
+	public  boolean     userDefIsInsertRecordExplicit = false;
+	/** User Define Tab supplied ReadOnlyLogic (not inherited from base tab only) */
+	public  boolean     userDefReadOnlyLogicApplied = false;
 	/** Tree			*/
 	public  boolean	    HasTree = false;
 	/** Tree displayed on	*/
@@ -715,6 +741,9 @@ public class GridTabVO implements Evaluatee, Serializable
 		clone.IsSingleRow = IsSingleRow;
 		clone.IsReadOnly = IsReadOnly;
 		clone.IsInsertRecord = IsInsertRecord;
+		clone.hasUserDefTab = hasUserDefTab;
+		clone.userDefIsInsertRecordExplicit = userDefIsInsertRecordExplicit;
+		clone.userDefReadOnlyLogicApplied = userDefReadOnlyLogicApplied;
 		clone.HasTree = HasTree;
 		clone.TreeDisplayedOn = TreeDisplayedOn;
 		clone.MaxQueryRecords = MaxQueryRecords;

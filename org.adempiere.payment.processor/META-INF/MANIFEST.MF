@@ -7,8 +7,8 @@ Bundle-RequiredExecutionEnvironment: JavaSE-17
 Require-Capability: osgi.ee;filter:="(&(osgi.ee=JavaSE)(version>=17))"
 Require-Bundle: org.adempiere.base;bundle-version="14.0.0"
 Bundle-ClassPath: .,
- lib/jpayment.jar,
- lib/payflow.jar,
- lib/Verisign.jar
+ libx/jpayment.jar,
+ libx/payflow.jar,
+ libx/Verisign.jar
 Automatic-Module-Name: org.adempiere.payment.processor
 Bundle-Vendor: iDempiere Community

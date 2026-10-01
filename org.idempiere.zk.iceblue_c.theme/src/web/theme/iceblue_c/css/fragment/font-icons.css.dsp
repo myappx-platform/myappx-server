@@ -124,6 +124,7 @@
 }
 .z-icon-Home:before {
 	content: "\f015";
+	color: var(--zk-color-primary);
 }
 .z-icon-Ignore:before {
 	content: "\f0e2";

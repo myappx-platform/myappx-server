@@ -2115,16 +2115,20 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
         boolean changed = e.isChanged() || e.isInserting();
         boolean readOnly = adTabbox.getSelectedGridTab().isReadOnly();
         boolean processed = adTabbox.getSelectedGridTab().isProcessed();
-        boolean insertRecord = !readOnly;
+        // Insert permission: see GridTab.isInsertAllowed()
+        // Standard tabs: only static IsReadOnly blocks insert, not ReadOnlyLogic
+        // User Define Tab detail tab: IsInsertRecord NULL + UserDef ReadOnlyLogic also blocks insert
+        // Header tab: ReadOnlyLogic never blocks insert (New creates a new parent record)
+        // User Define Tab with explicit IsInsertRecord Y/N: static VO only (ReadOnlyLogic does not block when Y)
+        boolean insertRecord = tabPanel.getGridTab().isInsertAllowed();
+        // For copy operation, check both static and dynamic readonly
+        // If tab is readonly (static or dynamic), copy is not allowed
+        boolean canCopy = insertRecord && !readOnly;
         boolean deleteRecord = !readOnly;
         if (!detailTab)
         {
-	        if (insertRecord)
-	        {
-	            insertRecord = tabPanel.getGridTab().isInsertRecord();
-	        }
 	        toolbar.enableNew(!changed && insertRecord && !tabPanel.getGridTab().isSortTab());
-	        toolbar.enableCopy(!changed && insertRecord && !tabPanel.getGridTab().isSortTab() && adTabbox.getSelectedGridTab().getRowCount()>0);
+	        toolbar.enableCopy(!changed && canCopy && !tabPanel.getGridTab().isSortTab() && adTabbox.getSelectedGridTab().getRowCount()>0);
 	        toolbar.enableRefresh(!changed);
 	        if (deleteRecord)
 	        {
@@ -2139,7 +2143,7 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
         }
         else
         {
-        	adTabbox.updateDetailPaneToolbar(changed, readOnly);
+        	adTabbox.updateDetailPaneToolbar(changed, tabPanel.getGridTab().isReadOnly());
         }
         boolean isEditting = adTabbox.needSave(true, false) ||
         		adTabbox.getSelectedGridTab().isNew() ||
@@ -2469,7 +2473,9 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
      */
     private void onNewCallback(final Callback<Boolean> postCallback)
     {
-        if (!adTabbox.getSelectedGridTab().isInsertRecord())
+        // Check insert permission (see GridTab.isInsertAllowed())
+        GridTab gridTab = adTabbox.getSelectedGridTab();
+        if (!gridTab.isInsertAllowed())
         {
             logger.warning("Insert Record disabled for Tab");
             if (postCallback != null)
@@ -2557,7 +2563,18 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
 	 */
     private void onCopyCallback(Callback<Boolean> postCallback)
     {
-        if (!adTabbox.getSelectedGridTab().isInsertRecord())
+        GridTab gridTab = adTabbox.getSelectedGridTab();
+        // For copy operation, check both static and dynamic readonly
+        // If tab is readonly (static or dynamic), copy is not allowed
+        if (gridTab.isReadOnly())
+        {
+            logger.warning("Copy Record disabled - Tab is readonly");
+            if (postCallback != null)
+            	postCallback.onCallback(false);
+            return;
+        }
+        // Check insert permission (see GridTab.isInsertAllowed())
+        if (!gridTab.isInsertAllowed())
         {
             logger.warning("Insert Record disabled for Tab");
             if (postCallback != null)

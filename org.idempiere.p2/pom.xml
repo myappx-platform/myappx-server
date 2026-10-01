@@ -138,6 +138,13 @@
 						</goals>
 						<phase>${materializeProduct}</phase>
 					</execution>
+					<execution>
+						<!-- create zip file with the installed product -->
+						<id>archive-products</id>
+						<goals>
+							<goal>archive-products</goal>
+						</goals>
+					</execution>					
 				</executions>
 				<configuration>
 					<source>repository</source>
@@ -145,7 +152,8 @@
 						<product>
 							<!-- The uid in the .product file, NOT the name of the .product file -->
 							<id>${idempiere.product.id}</id>
-							<archiveFileName>idempiere-server-${unqualifiedVersion}-${buildQualifier}</archiveFileName>
+							<archiveFileName>myappxserver-${unqualifiedVersion}.${buildQualifier}</archiveFileName>
+							<rootFolder>appxserver</rootFolder>
 						</product>
 					</products>
 				</configuration>
@@ -212,7 +220,7 @@
 							</applicationArgs>
 						</configuration>
 					</execution>
-					<execution>
+					<!-- <execution>
 						<id>default-eclipse-run-macosx</id>
 						<goals>
 							<goal>eclipse-run</goal>
@@ -240,7 +248,7 @@
 								<arg>-roaming</arg>
 							</applicationArgs>
 						</configuration>
-					</execution>
+					</execution> -->
 				</executions>
 			</plugin>
 		</plugins>

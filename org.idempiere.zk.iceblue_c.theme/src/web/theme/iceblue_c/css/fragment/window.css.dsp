@@ -21,6 +21,26 @@ div.wc-modal, div.wc-modal-none, div.wc-highlighted, div.wc-highlighted-none {
 	border: none;
 }
 
+.desktop-tabpanel .z-window-content .z-south,
+.z-window-modal:not(.z-messagebox-window) .z-window-content .z-south,
+.z-window-highlighted:not(.z-messagebox-window) .z-window-content .z-south,
+.z-window-overlapped .z-window-content .z-south {
+    background: var(--myappx-canvas);
+	border-top: 1px solid var(--myappx-border);
+}
+.desktop-tabpanel .z-window-content .z-center,
+.z-window-modal:not(.z-messagebox-window) .z-window-content .z-center,
+.z-window-highlighted:not(.z-messagebox-window) .z-window-content .z-center,
+.z-window-overlapped .z-window-content .z-center {
+    background: var(--myappx-canvas);
+}
+.desktop-tabpanel .z-window-content .z-grid-body,
+.z-window-modal:not(.z-messagebox-window) .z-window-content .z-grid-body,
+.z-window-highlighted:not(.z-messagebox-window) .z-window-content .z-grid-body,
+.z-window-overlapped .z-window-content .z-grid-body {
+    background: var(--myappx-canvas);
+}
+
 .z-window-header {
 	padding: 4px 6px 4px 9px;
 }
@@ -35,6 +55,7 @@ div.wc-modal, div.wc-modal-none, div.wc-highlighted, div.wc-highlighted-none {
 {
 	color: var(--zk-window-header-color);
 	font-weight: bold;
+	background-color: var(--myappx-accent);
 }
 
 .z-window-overlapped, .z-window-popup, .z-window-modal, .z-window-highlighted 
@@ -73,6 +94,10 @@ div.wc-modal, div.wc-modal-none, div.wc-highlighted, div.wc-highlighted-none {
 .popup-dialog .dialog-content {
 	padding: 8px !important;
 	--margin-bottom: 20px !important;
+	background-color: var(--myappx-canvas) !important;
+}
+.popup-dialog .z-vlayout .z-vlayout-inner {
+   padding-bottom: 0px !important;
 }
 
 .popup-dialog.z-window-overlapped .dialog-footer {
@@ -144,6 +169,23 @@ div.wc-modal, div.wc-modal-none, div.wc-highlighted, div.wc-highlighted-none {
 }
 .quick-form.z-window .z-south-body .confirm-panel {
 	padding-top: 9px; 
+}
+
+.quick-form .z-north {
+	background: var(--myappx-canvas);
+}
+.quick-form .z-center {
+	background: var(--myappx-canvas);
+}
+.quick-form .z-south {
+	background: var(--myappx-canvas);
+	border-top: 1px solid var(--myappx-border); 
+}
+.quick-form .z-window-content {
+	background: var(--myappx-canvas);
+}
+.quick-form .z-paging {
+	background: var(--myappx-canvas);
 }
 
 <%-- record id editor dialog --%>

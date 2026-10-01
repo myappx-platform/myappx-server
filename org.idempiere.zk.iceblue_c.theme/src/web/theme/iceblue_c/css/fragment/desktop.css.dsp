@@ -15,6 +15,7 @@
 
 .desktop-header {
 	background-color: ${u:sysConfig("ZK_DESKTOP_HEADER_BACKGROUND_COLOR", "#C7E8FF")}; <%-- SysConfig with default to #C7E8FF --%>
+	background-image: linear-gradient(var(--myappx-accent), var(--myappx-canvas));
 	width: 100%;
 	height: 46px;
 	padding-left: 4px;
@@ -109,6 +110,9 @@
 .desktop-center > .z-center-body {
 	padding: 0px;
 }
+.desktop-center .desktop-tabbox .z-tabpanel {
+    background: var(--myappx-canvas);
+}
 
 <%-- tabbox for application windows --%>
 .desktop-tabbox {
@@ -161,16 +165,45 @@
 	height: 16px;
 }
 
+.desktop-tabbox.z-tabbox .adtab-form .z-vlayout-inner .z-tabbox-top {
+    padding: 0 !important;
+    width: auto !important;
+    max-width: 100%;
+    margin: 8px 0 !important;
+    box-sizing: border-box;
+}
+
 .desktop-tabpanel {
 	margin: 0;
 	padding: 0;
-	border: 0;
 	position: relative !important;
+	border: 1px solid var(--myappx-border) !important;
 }
 .desktop-tabpanel > .z-window-embedded {
 	border: none;
 }
+.desktop-tabpanel.z-tabpanel .z-window-content {
+	padding: 0px;
+}
+
+.desktop-tabpanel.z-tabpanel .z-borderlayout .z-center {
+    background: var(--myappx-canvas);
+}
+.desktop-tabpanel.z-tabpanel .z-borderlayout .z-south {
+    background: var(--myappx-canvas);
+}
+.desktop-tabpanel.z-tabpanel .z-borderlayout .z-north {
+    background: var(--myappx-canvas);
+}
+.desktop-tabpanel.z-tabpanel .z-borderlayout .z-south-splitter {
+	border-top: 1px solid var(--myappx-border);
+    background: var(--myappx-canvas);
+}
+
 <%-- the home tab panel --%>
+.desktop-hometab {
+	font-weight:bold;
+}
 .desktop-home-tabpanel {
 	width: 100% !important;
 }
@@ -188,7 +221,8 @@
 }
 .desktop-left-column + .z-west-splitter,  .desktop-left-column.z-west {
 	border-top: none; 
-	border-right: 1px solid transparent;
+	border-right: 0px solid transparent;
+	background-color: var(--myappx-canvas);
 }
 .desktop-left-column .z-west-body {
 	border-right: none;
@@ -204,7 +238,8 @@
 }
 .desktop-right-column + .z-east-splitter,  .desktop-right-column.z-east {
 	border-top: none; 
-	border-left: 1px solid transparent;
+	border-left: 0px solid transparent;
+	background-color: var(--myappx-canvas);
 }
 .desktop-right-column .z-east-body {
 	border-left: none;

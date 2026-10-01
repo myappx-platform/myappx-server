@@ -48,7 +48,7 @@ public class FeedbackManager {
 		info.append(context);
 		
 		ByteArrayDataSource ds = new ByteArrayDataSource(info.toString(), "UTF-8", "text/plain");
-		ds.setName("idempiere-log.txt");
+		ds.setName("myappx-log.txt");
 		
 		return ds;
 	}

@@ -16,7 +16,7 @@ Require-Bundle: org.adempiere.base;bundle-version="14.0.0",
  json;bundle-version="20231013.0.0",
  org.apache.ecs;bundle-version="14.0.0"
 Import-Package: com.google.common.net;version="33.2.1",
- org.osgi.service.component.annotations;version="1.5.1"
+ org.osgi.service.component.annotations
 Bundle-Vendor: idempiere.org
 Fragment-Host: org.adempiere.ui.zk;bundle-version="11.0.0"
 Automatic-Module-Name: org.idempiere.ui.zk.datatable

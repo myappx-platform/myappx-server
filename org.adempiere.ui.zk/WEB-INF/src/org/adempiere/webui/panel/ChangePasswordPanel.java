@@ -333,11 +333,11 @@ public class ChangePasswordPanel extends Window implements EventListener<Event>
     	if (!newPassword.equals(retypeNewPassword))
     		throw new IllegalArgumentException(Msg.getMsg(m_ctx, "PasswordNotMatch"));
 
-    	if (Util.isEmpty(securityQuestion))
-    		throw new IllegalArgumentException(Msg.getMsg(m_ctx, "SecurityQuestionMandatory"));
+    	// if (Util.isEmpty(securityQuestion))
+    	// 	throw new IllegalArgumentException(Msg.getMsg(m_ctx, "SecurityQuestionMandatory"));
 
-    	if (Util.isEmpty(answer))
-    		throw new IllegalArgumentException(Msg.getMsg(m_ctx, "AnswerMandatory"));
+    	// if (Util.isEmpty(answer))
+    	// 	throw new IllegalArgumentException(Msg.getMsg(m_ctx, "AnswerMandatory"));
 
     	if (!oldPassword.equals(m_userPassword))
     		throw new IllegalArgumentException(Msg.getMsg(m_ctx, "OldPasswordNoMatch"));
@@ -370,8 +370,8 @@ public class ChangePasswordPanel extends Window implements EventListener<Event>
 
 				user.set_ValueOfColumn("Password", newPassword); // will be hashed and validate on saveEx
 	    		user.setIsExpired(false);
-	    		user.setSecurityQuestion(securityQuestion);
-	    		user.setAnswer(answer);    		
+	    		// user.setSecurityQuestion(securityQuestion);
+	    		// user.setAnswer(answer);    		
     			user.saveCrossTenantSafeEx(trx.getTrxName());
     			if (tenantsChanged.length() > 0)
     				tenantsChanged.append(", ");

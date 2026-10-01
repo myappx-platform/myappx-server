@@ -73,6 +73,11 @@
 	color: var(--zk-toolbar-button-text-color);
 	flex-shrink: 0;
 }
+.z-toolbarbutton:focus {
+	border-color: var(--zk-button-focus-border-color-local);
+	outline: 1px solid var(--zk-button-focus-border-color-local);
+	outline-offset: 1px;
+}
 .z-toolbarbutton .z-toolbarbutton-content {
 	display: inline-flex;
     align-items: center;

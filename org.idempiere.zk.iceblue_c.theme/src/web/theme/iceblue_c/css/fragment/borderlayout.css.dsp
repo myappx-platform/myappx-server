@@ -33,6 +33,10 @@
 	filter: alpha(opacity=100);  <%-- IE --%>
 	opacity: 1.0;  <%-- Moz + FF --%>
 }
+.adwindow-layout .z-south-splitter-button,
+.desktop-tabpanel .z-south-splitter-button {
+	background-color: var(--myappx-splitter-button);
+}
 
 .z-east-splitter-button-over,
 .z-west-splitter-button-over,

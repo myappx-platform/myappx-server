@@ -2,22 +2,40 @@
 <%@ taglib uri="http://www.zkoss.org/dsp/web/core" prefix="c" %>
 <%@ taglib uri="http://www.idempiere.org/dsp/web/util" prefix="u" %>
 
+/* noto-sans-sc-regular - chinese-simplified_latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'Noto Sans SC';
+  font-style: normal;
+  font-weight: 400;
+  src: url('fonts/noto-sans-sc-v40-chinese-simplified_latin-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
 :root {
 	/* Core CSS variables */
 	--zk-base-font-size: 12px;
-	--zk-base-title-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+	--zk-base-title-font-family: -apple-system, BlinkMacSystemFont, "Microsoft Yahei", "Noto Sans SC", "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 	--zk-base-content-font-family: var(--zk-base-title-font-family);
 
 	--zk-color-primary: #0093F9;
+
+	/* MyAppx palette. Fragments use these instead of repeating hex. */
+	--myappx-canvas: #c7e8ff;
+	--myappx-accent: #7ac8ff;
+	--myappx-accent-soft: #e0f2ff;
+	--myappx-toolbar-button: #e9f0ff;
+	--myappx-border: #cccccc;
+	--myappx-gadget-head: #f4c855;
+	--myappx-splitter-button: #FFC107;
 	
 	--zk-mask-background-color: #FFFFFF; /* #E0E1E3 */;
 	--zk-mesh-cell-focus-box-shadow-color: transparent; /* var(--zk-color-primary); */
 	--zk-toolbar-button-background-color: transparent;
     --zk-toolbar-button-checked-color: #fff; /* var(--zk-text-color-default3); */
-    --zk-toolbar-button-checked-background-color: #7ac8ff; /* var(--zk-color-primary); */
+    --zk-toolbar-button-checked-background-color: var(--myappx-accent); /* var(--zk-color-primary); */
 
 	/* Custom CSS variables */
-	--zk-body-background-color: #D4E3F4;
+	--zk-body-background-color: var(--myappx-canvas);
     --zk-body-text-color: #333;
     --zk-icon-font-family: FontAwesome;
 
@@ -28,32 +46,32 @@
     --zk-mobile-font-size: 15px;
 
 	--zk-attachment-drag-border-color: #3fb900;
-    --zk-frozen-background-color: white;
+    --zk-frozen-background-color: var(--myappx-canvas);
 
-	--zk-adwindow-status-background-color: #f6fafe;
+	--zk-adwindow-status-background-color: var(--myappx-canvas);
 	--zk-adwindow-docstatus-error-color: red;
-	--zk-adwindow-breadcrumb-background-color: #ffffff;
+	--zk-adwindow-breadcrumb-background-color: var(--myappx-accent);
 	--zk-adwindow-breadcrumb-border-color: #c5c5c5;
-	--zk-adwindow-detailpane-grid-south-background-color: #ffffff;
+	--zk-adwindow-detailpane-grid-south-background-color: var(--myappx-accent);
 	--zk-adwindow-sub-tab-border-color: #696969;
 	--zk-adwindow-activity-card-border-color: #d0cdc8;
 	--zk-adwindow-mobile-overflow-active-background-color: #ddd;
 
 	--zk-appmenu-link-color: var(--zk-body-text-color);
-	--zk-appmenu-link-hover-background-color: #e0f2ff;
+	--zk-appmenu-link-hover-background-color: var(--myappx-accent-soft);
 	--zk-appmenu-link-hover-color: rgba(0,0,0,0.9);
 	--zk-appmenu-search-toggle-border-color: #ababab;
 	--zk-appmenu-highlight-background-color: #ffff00;
 
 	--zk-borderlayout-collapsed-hover-shadow-color: rgba(197,197,197,0.5);
 	--zk-borderlayout-slide-shadow-color: #cfcfcf;
-	--zk-borderlayout-collapsed-background-color: #e0f2ff;
+	--zk-borderlayout-collapsed-background-color: var(--myappx-accent-soft);
 	--zk-borderlayout-splitter-button-color: rgba(0,0,0,0.34);
 	--zk-borderlayout-splitter-background-color: #f9fcff;
 
 	--zk-button-os-hover-color: #ffffff;
-	--zk-button-os-hover-background-color: #7ac8ff;
-	--zk-button-focus-border-color-local: black;
+	--zk-button-os-hover-background-color: var(--myappx-accent);
+	--zk-button-focus-border-color-local: var(--zk-color-primary);
 	--zk-button-sorttab-shadow-color: #bbb;
 	--zk-button-sorttab-color: #555;
 	--zk-button-sorttab-border-color: #bbb;
@@ -65,14 +83,14 @@
 	--zk-button-disabled-icon-color: var(--zk-body-text-color);
 	--zk-button-ok-icon-color: white;
 
-	--zk-desktop-header-background-color: #c7e8ff;
-	--zk-desktop-header-border-color: #adddff;
-	--zk-desktop-header-hover-background-color: #e0f2ff;
+	--zk-desktop-header-background-color: var(--myappx-canvas);
+	--zk-desktop-header-border-color: var(--myappx-canvas);
+	--zk-desktop-header-hover-background-color: var(--myappx-accent-soft);
 	--zk-desktop-header-hover-color: rgba(0,0,0,0.9);
 	--zk-desktop-tab-toolbar-hover-background-color: #ddd;
 	--zk-desktop-tab-toolbar-hover-shadow-color: #ccc;
 	--zk-desktop-column-border-color: #c5c5c5;
-	--zk-desktop-column-background-color: #f6fafe;
+	--zk-desktop-column-background-color: var(--myappx-canvas);
 	--zk-desktop-toolbar-icon-color: rgba(0,0,0,0.57);
 
 	--zk-drill-window-field-color: gray;
@@ -87,7 +105,7 @@
 	--zk-field-editor-html-hover-border-color: #a8a8a8;
 	--zk-field-editor-mandatory-border-color: red;
 	--zk-field-editor-mandatory-label-color: red;
-	--zk-field-editor-action-hover-background-color: #7ac8ff;
+	--zk-field-editor-action-hover-background-color: var(--myappx-accent);
 	--zk-field-editor-fullsize-image-border-color: #ccc;
 	--zk-field-editor-fullsize-image-background-color: #e3f4f9;
 
@@ -124,7 +142,7 @@
 	--zk-gadget-panel-icon-hover-color: rgb(0 0 0 / 100%);
 	--zk-gadget-dashboard-widget-border-color: rgba(0, 0, 0, 0.09);
 	--zk-gadget-recent-item-text-color: var(--zk-body-text-color);
-	--zk-gadget-recent-item-hover-background-color: #e0f2ff;
+	--zk-gadget-recent-item-hover-background-color: var(--myappx-accent-soft);
 	--zk-gadget-views-button-hover-text-color: rgba(0,0,0,0.9);
 	--zk-gadget-mandatory-process-background-color: #C62223;
 	--zk-gadget-mandatory-process-text-color: white;
@@ -135,7 +153,7 @@
 	--zk-gadget-help-popup-background-color: black;
 	--zk-gadget-help-popup-text-color: white;
 
-	--zk-grid-header-background-color: #e0f2ff;
+	--zk-grid-header-background-color: var(--myappx-accent-soft);
 	--zk-grid-header-border-color: #ccc;
 	--zk-grid-row-indicator-color: var(--zk-body-text-color);
 	--zk-grid-highlight-background-color: #ffffcc;
@@ -143,7 +161,7 @@
 	--zk-grid-body-background-color: #fff;
 	--zk-grid-content-text-color: var(--zk-body-text-color);
 	--zk-grid-content-hover-text-color: #000;
-	--zk-grid-sort-active-background-color: #c7e8ff;
+	--zk-grid-sort-active-background-color: var(--myappx-canvas);
 	--zk-grid-row-cell-border-color: #cfcfcf;
 
 	--zk-group-row-background-color: #f9f9f9;
@@ -172,17 +190,17 @@
 	--zk-input-element-disabled-color: black;
 	--zk-input-element-border-color: #ececec;
 	--zk-input-element-datebox-button-color: var(--zk-body-text-color);
-	--zk-input-element-hover-background-color: #7ac8ff;
+	--zk-input-element-hover-background-color: var(--myappx-accent);
 	--zk-input-element-hover-icon-color: #fff;
 	--zk-input-element-checkbox-focus-border-color: #006af9;
 	--zk-input-element-checkbox-focus-color: #ffff08;
 	--zk-input-element-label-color: var(--zk-body-text-color);
 
-	--zk-login-window-background-color: #c7e8ff;
-	--zk-login-box-background-color: white;
+	--zk-login-window-background-color: transparent;
+	--zk-login-box-background-color: rgba(234, 240, 255, 0.5);
 	--zk-login-header-text-color: #484848;
 	--zk-login-label-color: black;
-	--zk-login-side-panel-background-color: #ffffff;
+	--zk-login-side-panel-background-color: transparent;
 
 	--zk-menu-tree-disabled-color: #c5cacb;
 	--zk-menu-tree-disabled-border-color: #d0def0;
@@ -216,7 +234,7 @@
 	--zk-window-transparent-color: transparent;
 	--zk-window-header-color: #484848;
 	--zk-window-embedded-header-color: #fff;
-	--zk-window-dialog-footer-background-color: #f7faff;
+	--zk-window-dialog-footer-background-color: var(--myappx-canvas);
 	--zk-window-dialog-footer-shadow-color: #ffffff;
 	--zk-window-quickform-readonly-color: #252525;
 	--zk-window-quickform-current-row-border-color: #6f97d2;

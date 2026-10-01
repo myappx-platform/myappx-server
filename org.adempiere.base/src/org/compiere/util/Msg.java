@@ -563,12 +563,25 @@ public final class Msg
 		
 		Msg msg = get();
 		CCache<String, String> cache = isPrintName ? msg.getElementPrintNameMap(AD_Language) : msg.getElementMap(AD_Language);
-		String key = ColumnName+"|"+isSOTrx;
-		String retStr = cache.get(key);
+		String sysKey = ColumnName+"|"+isSOTrx;
+		int AD_Client_ID = Env.getAD_Client_ID(Env.getCtx());
+		//	Tenant text uses its own key so one client cannot fill the system cache for the others.
+		//	An empty tenant entry means this client has no override; do not query again until cache reset.
+		if (AD_Client_ID > 0
+				&& MSysConfig.getBooleanValue(MSysConfig.ELEMENTS_AT_TENANT_LEVEL, false, AD_Client_ID)) {
+			String tenantKey = AD_Client_ID + "|" + sysKey;
+			String tenantStr = cache.get(tenantKey);
+			if (tenantStr == null)
+				tenantStr = loadTenantElement(cache, tenantKey, AD_Language, ColumnName, isSOTrx, isPrintName, AD_Client_ID);
+			if (tenantStr != null && tenantStr.length() > 0)
+				return tenantStr;
+		}
+
+		String retStr = cache.get(sysKey);
 		if (retStr != null)
 			return retStr;
 
-		//	Check AD_Element
+		//	Check AD_Element (system level)
 		PreparedStatement pstmt = null;
 		ResultSet rs = null;
 		try
@@ -585,7 +598,8 @@ public final class Msg
 						.append(isPrintName ? " t.PrintName, t.PO_PrintName" : " t.Name, t.PO_Name")
 						.append(" FROM AD_Element_Trl t, AD_Element e")
 						.append(" WHERE t.AD_Element_ID=e.AD_Element_ID AND UPPER(e.ColumnName)=?")
-						.append(" AND t.AD_Language=?");
+						.append(" AND t.AD_Language=?")
+						.append(" AND t.AD_Client_ID = 0"); // load only translated elements at System level
 				pstmt = DB.prepareStatement(sql.toString(), null);
 				pstmt.setString(2, AD_Language);
 			}
@@ -615,10 +629,59 @@ public final class Msg
 		}
 		
 		retStr = retStr == null ? "" : retStr.trim();
-		cache.put(key, retStr);
+		cache.put(sysKey, retStr);
 		return retStr;
 		
 	}   //  getElement
+
+	/**
+	 *	Load one tenant element translation into {@code tenantKey}.
+	 *	@return cached text, "" when this client has no override, or null when the query failed
+	 */
+	private static String loadTenantElement(CCache<String, String> cache, String tenantKey, String AD_Language,
+			String ColumnName, boolean isSOTrx, boolean isPrintName, int AD_Client_ID)
+	{
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		try
+		{
+			StringBuilder sql = new StringBuilder("SELECT")
+					.append(isPrintName ? " t.PrintName, t.PO_PrintName" : " t.Name, t.PO_Name")
+					.append(" FROM AD_Element_Trl t, AD_Element e")
+					.append(" WHERE t.AD_Element_ID=e.AD_Element_ID AND UPPER(e.ColumnName)=?")
+					.append(" AND t.AD_Client_ID=? AND t.AD_Language=?");
+			pstmt = DB.prepareStatement(sql.toString(), null);
+			pstmt.setString(1, ColumnName.toUpperCase());
+			pstmt.setInt(2, AD_Client_ID);
+			pstmt.setString(3, AD_Language);
+
+			String retStr = "";
+			rs = pstmt.executeQuery();
+			if (rs.next())
+			{
+				retStr = rs.getString(1);
+				if (!isSOTrx)
+				{
+					String temp = rs.getString(2);
+					if (temp != null && temp.length() > 0)
+						retStr = temp;
+				}
+				retStr = retStr == null ? "" : retStr.trim();
+			}
+			cache.put(tenantKey, retStr);
+			return retStr;
+		}
+		catch (SQLException e)
+		{
+			s_log.log(Level.SEVERE, "getElement (tenant level)", e);
+			return null;
+		}
+		finally
+		{
+			DB.close(rs, pstmt);
+			rs = null; pstmt = null;
+		}
+	}
 
 	/**
 	 *  Get Translation for Element using Sales terminology

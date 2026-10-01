@@ -7,6 +7,6 @@
 	</version>
 	<taglib>
 		<taglib-uri>http://www.idempiere.org/dsp/web/util</taglib-uri>
-		<taglib-location>/WEB-INF/tld/web/idempiere-util.dsp.tld</taglib-location>
+		<taglib-location>/metainfo/tld/web/idempiere-util.dsp.tld</taglib-location>
 	</taglib>
 </config>

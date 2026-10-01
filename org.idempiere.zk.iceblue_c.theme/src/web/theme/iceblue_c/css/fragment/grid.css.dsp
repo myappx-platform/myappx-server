@@ -13,6 +13,7 @@
 
 .z-grid tbody tr.grid-inactive-row td.z-cell {
 	background-image: none !important;
+	background-color: #f2f2f2;
 }
 .z-grid tbody tr.grid-inactive-row td.row-indicator-selected {
 	background-image: url(${c:encodeURL('~./theme/iceblue_c/images/EditRecord16.png')}) !important;

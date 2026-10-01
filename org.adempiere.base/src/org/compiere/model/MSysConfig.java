@@ -168,12 +168,16 @@ public class MSysConfig extends X_AD_SysConfig
     public static final String MAX_TEXT_LENGTH_ON_GRID_VIEW = "MAX_TEXT_LENGTH_ON_GRID_VIEW";
     public static final String MENU_INFOUPDATER_SLEEP_MS = "MENU_INFOUPDATER_SLEEP_MS";
     public static final String MESSAGES_AT_TENANT_LEVEL = "MESSAGES_AT_TENANT_LEVEL";
+    public static final String ELEMENTS_AT_TENANT_LEVEL = "ELEMENTS_AT_TENANT_LEVEL";
     public static final String MFA_NTP_TIMEOUT_IN_MILLISECONDS = "MFA_NTP_TIMEOUT_IN_MILLISECONDS";
     public static final String MFA_REGISTERED_DEVICE_EXPIRATION_DAYS = "MFA_REGISTERED_DEVICE_EXPIRATION_DAYS";
     public static final String MFG_ValidateCostsDifferenceOnCreate = "MFG_ValidateCostsDifferenceOnCreate";
     public static final String MFG_ValidateCostsOnCreate = "MFG_ValidateCostsOnCreate";
     public static final String MONITOR_INITIAL_WAIT_FOR_CLUSTER_IN_SECONDS = "MONITOR_INITIAL_WAIT_FOR_CLUSTER_IN_SECONDS";
     public static final String MONITOR_MAX_WAIT_FOR_CLUSTER_IN_SECONDS = "MONITOR_MAX_WAIT_FOR_CLUSTER_IN_SECONDS";
+    public static final String MYAPPX_DESKTOP_PREAUTH_BYPASS_PATHS = "MYAPPX_DESKTOP_PREAUTH_BYPASS_PATHS";
+    public static final String MYAPPX_DESKTOP_PREAUTH_ENABLED = "MYAPPX_DESKTOP_PREAUTH_ENABLED";
+    public static final String MYAPPX_DESKTOP_PREAUTH_SECRET = "MYAPPX_DESKTOP_PREAUTH_SECRET";
 	public static final String MROLE_GETDEFAULT_RETURNS_NULL_WHEN_NO_CONTEXT = "MROLE_GETDEFAULT_RETURNS_NULL_WHEN_NO_CONTEXT";
     public static final String MSEQUENCE_GETNEXT_TIMEOUT = "MSEQUENCE_GETNEXT_TIMEOUT";
     public static final String MSTORAGEONHAND_LOCK_TIMEOUT = "MSTORAGEONHAND_LOCK_TIMEOUT";
@@ -292,6 +296,8 @@ public class MSysConfig extends X_AD_SysConfig
     public static final String ZK_REPORT_TABLE_OPEN_IN_NEW_TAB = "ZK_REPORT_TABLE_OPEN_IN_NEW_TAB";
     public static final String ZK_REPORT_TABLE_OUTPUT_TYPE = "ZK_REPORT_TABLE_OUTPUT_TYPE";
     public static final String ZK_ROOT_FOLDER_BROWSER = "ZK_ROOT_FOLDER_BROWSER";
+    public static final String ENABLE_MULTILANG_MENU_SEARCH = "ENABLE_MULTILANG_MENU_SEARCH";
+    public static final String MULTILANG_MENU_SEARCH_LANGUAGES = "MULTILANG_MENU_SEARCH_LANGUAGES";
     public static final String ZK_SEARCH_AUTO_COMPLETE_MAX_ROWS = "ZK_SEARCH_AUTO_COMPLETE_MAX_ROWS";
 	public static final String ZK_SEARCH_AUTO_COMPLETE_TIMEOUT = "ZK_SEARCH_AUTO_COMPLETE_TIMEOUT";
     public static final String ZK_SEQ_DEFAULT_VALUE_PANEL = "ZK_SEQ_DEFAULT_VALUE_PANEL";

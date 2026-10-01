@@ -175,6 +175,73 @@ public class MUserDefTab extends X_AD_UserDef_Tab implements ImmutablePOSupport
 	}
 
 	@Override
+	protected boolean beforeSave(boolean newRecord)
+	{
+		// Validate IsInsertRecord and IsReadOnly against base tab configuration
+		// Priority rules:
+		// 1. If base tab IsInsertRecord is N, cannot set to Y in user def tab (reset to null)
+		// 2. If base tab IsReadOnly is Y, cannot set InsertRecord to Y or ReadOnly to N (reset to null)
+		// 3. If ReadOnly is Y, automatically set InsertRecord to null (inherit base tab)
+		
+		if (getAD_Tab_ID() <= 0)
+			return true; // No base tab to validate against
+		
+		// Get base tab configuration
+		MTab baseTab = new MTab(getCtx(), getAD_Tab_ID(), get_TrxName());
+		if (baseTab.getAD_Tab_ID() <= 0)
+			return true; // Base tab not found
+		
+		boolean baseTabIsInsertRecord = baseTab.isInsertRecord();
+		boolean baseTabIsReadOnly = baseTab.isReadOnly();
+		
+		String isReadOnly = getIsReadOnly();
+		String isInsertRecord = getIsInsertRecord();
+		
+		// Rule 1: If base tab IsInsertRecord is N, cannot set to Y in user def tab
+		if (!baseTabIsInsertRecord && X_AD_UserDef_Tab.ISINSERTRECORD_Yes.equals(isInsertRecord))
+		{
+			// Base tab doesn't allow insert, reset to null (inherit base tab)
+			setIsInsertRecord(null);
+			log.saveWarning("BaseTabInsertRecordNotAllowed", 
+				"Base tab does not allow Insert Record. User Define Tab Customization cannot override this setting.");
+		}
+		
+		// Rule 2: If base tab IsReadOnly is Y, cannot set InsertRecord to Y or ReadOnly to N
+		if (baseTabIsReadOnly)
+		{
+			// Cannot override base tab ReadOnly setting
+			if (X_AD_UserDef_Tab.ISREADONLY_No.equals(isReadOnly))
+			{
+				// Base tab is read only, cannot set to N in user def tab
+				setIsReadOnly(null);
+				log.saveWarning("BaseTabReadOnlyCannotOverride", 
+					"Base tab is Read Only. User Define Tab Customization cannot override this setting.");
+			}
+			
+			// Cannot set InsertRecord to Y when base tab is read only
+			if (X_AD_UserDef_Tab.ISINSERTRECORD_Yes.equals(isInsertRecord))
+			{
+				// Base tab is read only, cannot set InsertRecord to Y
+				setIsInsertRecord(null);
+				log.saveWarning("BaseTabReadOnlyInsertRecord", 
+					"Base tab is Read Only. User Define Tab Customization cannot enable Insert Record when base tab is Read Only.");
+			}
+		}
+		
+		// Rule 3: If ReadOnly is Y, clear any explicit IsInsertRecord (Y or N) back to null.
+		// Same as CalloutUserDefTab: a read-only customization inherits insert from the base tab.
+		// Re-read after the rules above.
+		isReadOnly = getIsReadOnly();
+		isInsertRecord = getIsInsertRecord();
+		if (X_AD_UserDef_Tab.ISREADONLY_Yes.equals(isReadOnly) && isInsertRecord != null)
+		{
+			setIsInsertRecord(null);
+		}
+		
+		return true;
+	}
+
+	@Override
 	public PO markImmutable() {
 		if (is_Immutable())
 			return this;

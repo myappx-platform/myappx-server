@@ -8,6 +8,7 @@
  
 .adwindow-form.z-grid > .z-grid-body {
 	overflow: visible !important;
+	background-color: var(--myappx-canvas);
 }
 
 <%-- main vlayout of AD window --%>
@@ -16,6 +17,7 @@
 	border: none;
 	width: 100%;
 	height: 100%;
+	background-color: var(--myappx-canvas);
 }
 
 .adwindow-layout .z-center {
@@ -123,6 +125,7 @@
 }
 
 .adwindow-detailpane-tabpanel {
+	padding: 0px;
 	background-color: var(--zk-adwindow-breadcrumb-background-color);
 }
 
@@ -130,7 +133,7 @@
 .adwindow-detailpane-toolbar {
 	border: none;
 	height: 2em;
-	background: none;
+	background: var(--myappx-accent);
 }
 .adwindow-detailpane-toolbar .z-toolbar-body {
 	width: 100%;
@@ -140,6 +143,8 @@
 	padding: 0px;
 	width: 20px;
 	line-height: 14px;
+	border: none;
+	background: var(--myappx-toolbar-button);
 }
 .adwindow-detailpane-toolbar .z-toolbarbutton img {
 	width: 16px;
@@ -167,15 +172,17 @@
 .adwindow-detailpane-adtab-grid-south {
 	background-color: transparent; 
 	position: absolute; 
-	right: 0px; 
+	right: 2em;
+	max-width: calc(100% - 2em);
 	top: 0px; 
 	height: 24px;
+	padding-top: 4px;
 }
 .adwindow-detailpane-adtab-grid-south .z-paging {
-	padding: 0px !important;
+	padding: 1px !important;
 	height: 2em;
 	border: none;
-	background: var(--zk-adwindow-detailpane-grid-south-background-color);
+	background: var(--zk-adwindow-detailpane-grid-south-background-color) !important;
 }
 .adwindow-detailpane-adtab-grid-south .z-paging .z-paging-inp {
 	height: 16px;
@@ -190,9 +197,15 @@
 .adwindow-gridview-detail {
 	min-height: 200px;
 	height: 35%;
+	background-color: var(--myappx-canvas);
 }
 .adwindow-gridview-detail .z-south-body {
-	padding-top: 1px;
+	padding-top: 0px;
+	background-color: var(--myappx-canvas);
+}
+.adwindow-gridview-detail + .z-south-splitter {
+	background-color: var(--myappx-canvas);
+	border-top: 1px solid var(--myappx-border);
 }
 
 <%-- AD tab in detail panel with tab level greater than 0 --%>
@@ -216,6 +229,7 @@
 	padding: 0;
 	border: none;
 	position: relative;
+	background-color: var(--myappx-canvas);
 }
 
 .adtab-grid {
@@ -225,6 +239,7 @@
 .adtab-grid-south {
 	border: none;
 	height: 30px;
+	background-color: var(--myappx-canvas);
 }
 .adtab-grid-south .z-paging {
 	border: none;
@@ -238,6 +253,11 @@
 .adtab-grid > .z-grid-header > table > tbody > tr.z-columns > th.z-column > .z-column-content {
 	text-overflow: ellipsis;	
 }
+.adtab-grid > .z-grid-header > table > tbody > tr.z-columns > .z-columns-bar {
+    background: var(--myappx-accent-soft);
+    border-left: 1px solid var(--myappx-border);
+    border-bottom: 1px solid var(--myappx-canvas);
+}
 
 .adtab-form {
 	border:none !important;
@@ -249,14 +269,22 @@
 	width: 100%; 
 	height: 100%; 
 	position: absolute;
+	background-color: var(--myappx-canvas);
 }
 .adtab-form-borderlayout .z-center-body {
 	background-color: var(--zk-adwindow-status-background-color);
+	padding:0;
 }
 
 .adtab-form-borderlayout .z-grid-body {
 	background-color: var(--zk-adwindow-status-background-color);
- }
+}
+
+ .adtab-form-borderlayout.z-borderlayout .z-paging {
+	background-color: var(--myappx-canvas);
+	height: 32px;
+	padding: 0px 0px 0px 0px;
+}
 
 <%-- title text for collapsed detail panel --%>
 .adtab-form-borderlayout .z-south-collapsed:before { 
