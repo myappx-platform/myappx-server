@@ -36,7 +36,7 @@
 
 	/* Custom CSS variables */
 	--zk-body-background-color: var(--myappx-canvas);
-    --zk-body-text-color: #333;
+    --zk-body-text-color: #1e293b;
     --zk-icon-font-family: FontAwesome;
 
 	--zk-screen-font-size-x-large: 14px;
@@ -137,20 +137,27 @@
 
 	--zk-form-status-border-color: #9CBDFF;
 
-	--zk-gadget-panel-header-border-color: #e4e4e4;
-	--zk-gadget-panel-icon-color: rgb(0 0 0 / 57%);
-	--zk-gadget-panel-icon-hover-color: rgb(0 0 0 / 100%);
-	--zk-gadget-dashboard-widget-border-color: rgba(0, 0, 0, 0.09);
+	--zk-gadget-border-radius: 8px;
+	--zk-gadget-box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+	--zk-gadget-box-shadow-hover: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+	--zk-gadget-dashboard-widget-border-color: #e2e8f0;
+	--zk-gadget-panel-body-background-color: #ffffff;
+	--zk-gadget-panel-header-background-color: #ffffff;
+	--zk-gadget-panel-header-border-color: #f1f5f9;
+	--zk-gadget-panel-header-text-color: #1e293b;
+	--zk-gadget-panel-icon-color: #94a3b8;
+	--zk-gadget-panel-icon-hover-color: #1e293b;
+	--zk-gadget-panel-icon-hover-bg: #f1f5f9;
 	--zk-gadget-recent-item-text-color: var(--zk-body-text-color);
 	--zk-gadget-recent-item-hover-background-color: var(--myappx-accent-soft);
 	--zk-gadget-views-button-hover-text-color: rgba(0,0,0,0.9);
-	--zk-gadget-mandatory-process-background-color: #C62223;
+	--zk-gadget-mandatory-process-background-color: #b91c1c;
 	--zk-gadget-mandatory-process-text-color: white;
-	--zk-gadget-performance-indicator-background-color: #eee;
-	--zk-gadget-performance-indicator-border-color: #d8d8d8;
-	--zk-gadget-performance-title-background-color: #c8c8c8;
-	--zk-gadget-favorite-button-border-color: #6d6d6d;
-	--zk-gadget-help-popup-background-color: black;
+	--zk-gadget-performance-indicator-background-color: #f8fafc;
+	--zk-gadget-performance-indicator-border-color: #e2e8f0;
+	--zk-gadget-performance-title-background-color: #f1f5f9;
+	--zk-gadget-favorite-button-border-color: #cbd5e1;
+	--zk-gadget-help-popup-background-color: #1e293b;
 	--zk-gadget-help-popup-text-color: white;
 
 	--zk-grid-header-background-color: var(--myappx-accent-soft);
@@ -238,6 +245,8 @@
 	--zk-window-dialog-footer-shadow-color: #ffffff;
 	--zk-window-quickform-readonly-color: #252525;
 	--zk-window-quickform-current-row-border-color: #6f97d2;
+
+	--zk-text-color-light: rgba(0,0,0,0.72);
 }
 
 html,body {

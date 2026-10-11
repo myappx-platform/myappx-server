@@ -43,3 +43,5 @@ partial-runtime/
 
 # Local target platform (machine p2 mirror). Do not commit.
 org.idempiere.p2.targetplatform/*.local.target
+idempiere-ks.properties
+idempiere.ks
