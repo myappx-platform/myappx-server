@@ -535,7 +535,7 @@ public class MLookupFactory
 			}
 			realSQL.append(",").append(TableName).append(".IsActive");
 
-			String realKeyColumn = KeyColumn.endsWith("_ID") || KeyColumn.endsWith("_UU") ? KeyColumn : (MTable.get(ctx, TableName).isUUIDKeyTable() ? PO.getUUIDColumnName(TableName) : TableName + "_ID");
+			String realKeyColumn = getTrlJoinColumn(ctx, TableName, KeyColumn);
 
 			realSQL.append(" FROM ").append(TableName)
 				.append(" INNER JOIN ").append(TableName).append("_TRL ON (")
@@ -765,10 +765,11 @@ public class MLookupFactory
 			else
 				embedSQL.append(TableName).append("_Trl.").append(DisplayColumn);
 
+			String realKeyColumn = getTrlJoinColumn(Env.getCtx(), TableName, KeyColumn);
 			embedSQL.append(" FROM ").append(TableName).append(" ").append(TableNameAlias)
 				.append(" INNER JOIN ").append(TableName).append("_TRL ON (")
-				.append(TableNameAlias).append(".").append(KeyColumn)
-				.append("=").append(TableName).append("_Trl.").append(KeyColumn)
+				.append(TableNameAlias).append(".").append(realKeyColumn)
+				.append("=").append(TableName).append("_Trl.").append(realKeyColumn)
 				.append(" AND ").append(TableName).append("_Trl.AD_Language='")
 				.append(language.getAD_Language()).append("')");
 		}
@@ -876,10 +877,11 @@ public class MLookupFactory
 		//  Translation
 		if (isTranslated && !Env.isBaseLanguage(language, TableName))
 		{
+			String realKeyColumn = getTrlJoinColumn(ctx, TableName, KeyColumn);
 			realSQL.append(" FROM ").append(TableName)
 				.append(" INNER JOIN ").append(TableName).append("_TRL ON (")
-				.append(TableName).append(".").append(KeyColumn)
-				.append("=").append(TableName).append("_Trl.").append(KeyColumn)
+				.append(TableName).append(".").append(realKeyColumn)
+				.append("=").append(TableName).append("_Trl.").append(realKeyColumn)
 				.append(" AND ").append(TableName).append("_Trl.AD_Language='")
 				.append(language.getAD_Language()).append("')");
 		}
@@ -1114,9 +1116,10 @@ public class MLookupFactory
 		if (   isTranslated && !Env.isBaseLanguage(language, TableName)
 			&& !(TableName+"_Trl").equalsIgnoreCase(BaseTable))  // IDEMPIERE-1070
 		{
+			String realKeyColumn = getTrlJoinColumn(Env.getCtx(), TableName, KeyColumn);
 			embedSQL.append(" INNER JOIN ").append(TableName).append("_TRL ON (")
-				.append(TableName).append(".").append(KeyColumn)
-				.append("=").append(TableName).append("_Trl.").append(KeyColumn)
+				.append(TableName).append(".").append(realKeyColumn)
+				.append("=").append(TableName).append("_Trl.").append(realKeyColumn)
 				.append(" AND ").append(TableName).append("_Trl.AD_Language=")
 				.append(DB.TO_STRING(language.getAD_Language())).append(")");
 		}
@@ -1131,6 +1134,27 @@ public class MLookupFactory
 		//
 		return embedSQL.toString();
 	}	//  getLookup_TableDirEmbed
+
+	/**
+	 * Column that links a base table row to its translation row.
+	 * A translation table stores the parent key: {@code Table_ID} for an ID-key table,
+	 * or the UUID key for a UUID-key table. A lookup key such as {@code AD_Window_UU}
+	 * on an ID-key table is not a column of {@code AD_Window_Trl}.
+	 *
+	 * @param ctx context
+	 * @param tableName base table
+	 * @param keyColumn lookup key column
+	 * @return column present on both the base table and the {@code _Trl} table
+	 */
+	private static String getTrlJoinColumn(Properties ctx, String tableName, String keyColumn)
+	{
+		MTable table = MTable.get(ctx, tableName);
+		if (table != null && table.isUUIDKeyTable())
+			return PO.getUUIDColumnName(tableName);
+		if (keyColumn != null && keyColumn.endsWith("_ID"))
+			return keyColumn;
+		return tableName + "_ID";
+	}
 
 	/**
 	 * @param TableName
