@@ -47,6 +47,7 @@ import javax.swing.event.TableModelListener;
 import javax.swing.table.AbstractTableModel;
 
 import org.adempiere.base.GeneratedCodeCoverageExclusion;
+import org.adempiere.base.event.Observation;
 import org.adempiere.exceptions.AdempiereException;
 import org.adempiere.exceptions.DBException;
 import org.adempiere.util.ServerContext;
@@ -1680,7 +1681,8 @@ public class GridTable extends AbstractTableModel
 	private char dataSavePO () throws Exception
 	{
 		if (! m_importing) // Just use trx when importing
-			m_trxName = null;				
+			m_trxName = null;
+		StringBuilder changedColumns = new StringBuilder();				
 		//
 		Object[] rowData = getDataAtRow(m_rowChanged);
 		//
@@ -1721,6 +1723,9 @@ public class GridTable extends AbstractTableModel
 			//	***	Data changed ***
 			else if (m_inserting || isValueChanged(oldValue, value) )
 			{
+				if (changedColumns.length() > 0)
+					changedColumns.append(',');
+				changedColumns.append(columnName);
 				//	Check existence
 				int poIndex = po.get_ColumnIndex(columnName);
 				if (poIndex < 0)
@@ -1783,6 +1788,7 @@ public class GridTable extends AbstractTableModel
 
 		}	//	for every column
 
+		int savedId = po.get_ID();
 		if (!po.save())
 		{
 			String msg = "SaveError";
@@ -1874,6 +1880,8 @@ public class GridTable extends AbstractTableModel
 		}
 		//
 		log.config("fini");
+		int recordId = savedId > 0 ? savedId : po.get_ID();
+		Observation.publish("save", "ok", getTableName(), recordId, "", "Saved", "", changedColumns.toString());
 		return SAVE_OK;
 	}	//	dataSavePO
 	
@@ -2936,6 +2944,15 @@ public class GridTable extends AbstractTableModel
 	 */
 	protected void fireDataStatusEEvent (String AD_Message, String info, boolean isError)
 	{
+		if (isError) {
+			String code = AD_Message != null ? AD_Message : "";
+			String message = info != null ? info : "";
+			if (message.startsWith("DBExecuteError:")) {
+				code = "DBExecuteError";
+				message = "";
+			}
+			Observation.publish("save", "blocked", getTableName(), currentRecordId(), "", code, message, "");
+		}
 		//
 		DataStatusEvent e = createDSE();
 		if (info != null && info.startsWith("DBExecuteError:")) {
@@ -2966,6 +2983,16 @@ public class GridTable extends AbstractTableModel
 		if (errorLog != null)
 			fireDataStatusEEvent (errorLog.getValue(), errorLog.getName(), true);
 	}   //  fireDataStatusEEvent
+
+	private int currentRecordId()
+	{
+		try {
+			if (m_rowChanged >= 0)
+				return getKeyID(m_rowChanged);
+		} catch (Exception ignored) {
+		}
+		return 0;
+	}
 	
 	/**
 	 *  Remove Vetoable change listener for row changes

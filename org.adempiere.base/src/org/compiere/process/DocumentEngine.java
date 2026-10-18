@@ -31,6 +31,7 @@ import java.util.logging.Level;
 import org.adempiere.base.event.EventManager;
 import org.adempiere.base.event.EventProperty;
 import org.adempiere.base.event.IEventTopics;
+import org.adempiere.base.event.Observation;
 import org.adempiere.exceptions.AdempiereException;
 import org.compiere.model.MAcctSchema;
 import org.compiere.model.MAllocationHdr;
@@ -293,8 +294,31 @@ public class DocumentEngine implements DocAction
 		boolean success = processIt (m_action);
 		if (m_document != null && m_document.get_Logger().isLoggable(Level.FINE))
 			m_document.get_Logger().fine("**** Action=" + m_action + " - Success=" + success);
+		publishDocObservation(success);
 		return success;
 	}	//	process
+
+	private void publishDocObservation(boolean success)
+	{
+		String table = "";
+		int recordId = 0;
+		String status = "";
+		String message = m_message != null ? m_message : "";
+		if (m_document instanceof PO)
+		{
+			PO po = (PO) m_document;
+			table = po.get_TableName();
+			recordId = po.get_ID();
+		}
+		if (m_document != null)
+		{
+			status = m_document.getDocStatus() != null ? m_document.getDocStatus() : "";
+			if (m_document.getProcessMsg() != null)
+				message = m_document.getProcessMsg();
+		}
+		Observation.publish("doc_action", success ? "ok" : "error", table, recordId,
+				m_action != null ? m_action : "", status, message, "");
+	}
 
 	/**
 	 * 	Process document action - internal API, do not call directly.<br/>

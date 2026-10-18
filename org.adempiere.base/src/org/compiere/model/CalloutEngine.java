@@ -22,6 +22,7 @@ import java.sql.Timestamp;
 import java.util.Properties;
 import java.util.logging.Level;
 
+import org.adempiere.base.event.Observation;
 import org.compiere.util.CLogger;
 import org.compiere.util.Env;
 import org.idempiere.acct.IDoc;
@@ -122,6 +123,10 @@ public class CalloutEngine implements Callout
 			{
 				retValue = ex.toString();
 			}
+			String column = m_mField != null ? m_mField.getColumnName() : "";
+			String table = m_mTab != null ? m_mTab.getTableName() : "";
+			int recordId = m_mTab != null ? m_mTab.getRecord_ID() : 0;
+			Observation.publish("callout", "error", table, recordId, column, "CalloutError", retValue, "");
 		}
 		finally
 		{

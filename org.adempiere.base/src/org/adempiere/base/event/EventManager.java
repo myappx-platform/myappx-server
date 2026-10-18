@@ -149,6 +149,16 @@ public class EventManager implements IEventManager {
 		return instance;
 	}
 
+	/**
+	 * @return the event manager once OSGi has bound it, or null if startup has not finished.
+	 *         Does not wait. Use this on business paths that must not block.
+	 */
+	public static IEventManager getIfStarted() {
+		synchronized (mutex) {
+			return instance;
+		}
+	}
+
 	/* (non-Javadoc)
 	 * @see org.adempiere.base.event.IEventManager#postEvent(org.osgi.service.event.Event)
 	 */
