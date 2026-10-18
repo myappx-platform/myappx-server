@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 
 import org.adempiere.exceptions.DBException;
 import org.compiere.model.MColumn;
+import org.compiere.model.X_AD_WF_NextCondition;
 import org.compiere.model.MRole;
 import org.compiere.model.Query;
 import org.compiere.model.X_AD_WF_Node;
@@ -58,7 +59,7 @@ public class MWFNode extends X_AD_WF_Node implements ImmutablePOSupport
 	/**
 	 * generated serial id
 	 */
-	private static final long serialVersionUID = 3328770995394833132L;
+	private static final long serialVersionUID = 3328770995394833201L;
 
 	/**
 	 * 	Get WF Node from Cache
@@ -792,5 +793,65 @@ public class MWFNode extends X_AD_WF_Node implements ImmutablePOSupport
 		list.toArray (retValue);
 		return retValue;
 	}	//	getWFNodes
+
+	/**
+	 * Read-only description of the next nodes. SQL conditions are labeled SQL and the statement is omitted.
+	 * Does not evaluate which branch will be taken.
+	 * @param AD_Client_ID client
+	 * @return one line per transition, or an empty string
+	 */
+	public String describeTransitions(int AD_Client_ID)
+	{
+		StringBuilder text = new StringBuilder();
+		MWFNodeNext[] transitions = getTransitions(AD_Client_ID);
+		for (int i = 0; i < transitions.length; i++)
+		{
+			MWFNodeNext next = transitions[i];
+			if (text.length() > 0)
+				text.append('\n');
+			MWFNode target = MWFNode.get(getCtx(), next.getAD_WF_Next_ID());
+			String name = target != null && target.getName() != null ? target.getName() : "";
+			text.append(name);
+			if (next.getDescription() != null && next.getDescription().trim().length() > 0)
+				text.append(" - ").append(next.getDescription().trim());
+			String conditions = describeConditions(next);
+			if (conditions.length() > 0)
+				text.append(" - ").append(conditions);
+		}
+		return text.toString();
+	}
+
+	private String describeConditions(MWFNodeNext next)
+	{
+		MWFNextCondition[] conditions = next.getConditions(false);
+		if (conditions == null || conditions.length == 0)
+			return "";
+		StringBuilder text = new StringBuilder();
+		for (int i = 0; i < conditions.length; i++)
+		{
+			MWFNextCondition condition = conditions[i];
+			if (text.length() > 0)
+				text.append("; ");
+			if (condition.getOperation() != null
+					&& X_AD_WF_NextCondition.OPERATION_Sql.equals(condition.getOperation()))
+			{
+				text.append("SQL");
+				continue;
+			}
+			String column = "";
+			if (condition.getAD_Column_ID() > 0)
+			{
+				MColumn columnModel = MColumn.get(getCtx(), condition.getAD_Column_ID());
+				if (columnModel != null && columnModel.getColumnName() != null)
+					column = columnModel.getColumnName();
+			}
+			String operation = condition.getOperation() != null ? condition.getOperation() : "";
+			String value = condition.getValue() != null ? condition.getValue() : "";
+			text.append(column).append(' ').append(operation).append(' ').append(value);
+			if (condition.getValue2() != null && condition.getValue2().length() > 0)
+				text.append(' ').append(condition.getValue2());
+		}
+		return text.toString();
+	}
 	
 }

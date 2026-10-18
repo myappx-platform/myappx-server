@@ -54,6 +54,7 @@ import javax.xml.transform.stream.StreamResult;
 
 import org.adempiere.base.event.EventManager;
 import org.adempiere.base.event.IEventTopics;
+import org.adempiere.base.event.Observation;
 import org.adempiere.exceptions.AdempiereException;
 import org.adempiere.exceptions.CrossTenantException;
 import org.adempiere.exceptions.DBException;
@@ -2549,7 +2550,7 @@ public abstract class PO
 		}
 		
 		if (!doVerificationForSave())
-			return false;
+			return saveBlocked();
 
 		Trx localTrx = null;
 		Trx trx = null;
@@ -2602,7 +2603,7 @@ public abstract class PO
 					trx.rollback(savepoint);
 					savepoint = null;
 				}
-				return false;
+				return saveBlocked();
 			}
 		}
 		catch (Exception e)
@@ -2624,7 +2625,7 @@ public abstract class PO
 				} catch (SQLException e1){}
 				savepoint = null;
 			}
-			return false;
+			return saveBlocked();
 		}
 
 		try
@@ -2645,7 +2646,7 @@ public abstract class PO
 				{
 					trx.rollback(savepoint);
 				}
-				return false;
+				return saveBlocked();
 			}
 
 			if (!doOrganizationCheckForSave())
@@ -2662,7 +2663,7 @@ public abstract class PO
 					} catch (SQLException e1){}
 					savepoint = null;
 				}
-				return false;
+				return saveBlocked();
 			}
 
 			//	Save
@@ -2683,7 +2684,7 @@ public abstract class PO
 						localTrx.rollback();
 					else
 						trx.rollback(savepoint);
-					return b;
+					return saveBlocked();
 				}
 			}
 			else
@@ -2703,7 +2704,7 @@ public abstract class PO
 						localTrx.rollback();
 					else
 						trx.rollback(savepoint);
-					return b;
+					return saveBlocked();
 				}
 			}
 		}
@@ -2724,7 +2725,7 @@ public abstract class PO
 				} catch (SQLException e1){}
 				savepoint = null;
 			}
-			return false;
+			return saveBlocked();
 		}
 		finally
 		{
@@ -2749,6 +2750,19 @@ public abstract class PO
 		}
 	}	//	save
 
+	/**
+	 * Publish a blocked save and return false. {@link CLogger#peekError()} is left in place
+	 * so the window can still retrieve it.
+	 * @return false
+	 */
+	private boolean saveBlocked()
+	{
+		ValueNamePair error = CLogger.peekError();
+		String code = error != null && error.getValue() != null ? error.getValue() : "SaveError";
+		String message = error != null && error.getName() != null ? error.getName() : "";
+		Observation.publish("save", "blocked", get_TableName(), get_ID(), "", code, message, "");
+		return false;
+	}
 
 	/**
 	 * Tables allowed to be written in a read-only session

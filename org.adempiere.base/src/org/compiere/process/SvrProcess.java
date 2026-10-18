@@ -39,8 +39,10 @@ import org.adempiere.base.event.EventManager;
 import org.adempiere.base.event.EventProperty;
 import org.adempiere.base.event.IEventManager;
 import org.adempiere.base.event.IEventTopics;
+import org.adempiere.base.event.Observation;
 import org.adempiere.util.IProcessUI;
 import org.compiere.model.MPInstance;
+import org.compiere.model.MTable;
 import org.compiere.model.PO;
 import org.compiere.util.CLogger;
 import org.compiere.util.DB;
@@ -303,9 +305,24 @@ public abstract class SvrProcess implements ProcessCall
 		//	Parse Variables
 		msg = Msg.parseTranslation(m_ctx, msg);
 		m_pi.setSummary (msg, !success);
+		publishProcessObservation(success, msg);
 		
 		return success;
 	}   //  process
+
+	private void publishProcessObservation(boolean success, String summary)
+	{
+		String table = "";
+		if (m_pi.getTable_ID() > 0)
+		{
+			String name = MTable.getTableName(getCtx(), m_pi.getTable_ID());
+			if (name != null)
+				table = name;
+		}
+		String title = m_pi.getTitle() != null ? m_pi.getTitle() : "";
+		Observation.publish("process", success ? "ok" : "error", table, m_pi.getRecord_ID(),
+				"", title, summary != null ? summary : "", "");
+	}
 
 	/**
 	 * Send OSGi event

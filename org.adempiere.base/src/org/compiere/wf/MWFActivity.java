@@ -36,6 +36,7 @@ import java.util.StringTokenizer;
 import java.util.logging.Level;
 
 import org.adempiere.base.Core;
+import org.adempiere.base.event.Observation;
 import org.adempiere.exceptions.AdempiereException;
 import org.compiere.model.MAttachment;
 import org.compiere.model.MBPartner;
@@ -316,6 +317,7 @@ public class MWFActivity extends X_AD_WF_Activity implements Runnable
 				saveEx();
 			}
 			updateEventAudit();
+			publishWorkflow(oldState, getWFState(), workflowOutcome(getWFState()), getTextMsg());
 
 			//	Inform Process
 			if (m_process == null)
@@ -338,10 +340,48 @@ public class MWFActivity extends X_AD_WF_Activity implements Runnable
 			log.log(Level.SEVERE, msg);
 			Trace.printStack();
 			setTextMsgBefore(msg);
+			publishWorkflow(getWFState(), WFState, "error", msg);
 			saveEx();
 			// TODO: teo_sarca: throw exception ? please analyze the call hierarchy first
 		}
 	}	//	setWFState
+
+	private void publishWorkflow(String oldState, String newState, String outcome, String message)
+	{
+		String node = "";
+		try
+		{
+			MWFNode current = getNode();
+			if (current != null && current.getName() != null)
+				node = current.getName();
+		}
+		catch (Exception ignored)
+		{
+		}
+		String table = "";
+		try
+		{
+			String name = MTable.getTableName(getCtx(), getAD_Table_ID());
+			if (name != null)
+				table = name;
+		}
+		catch (Exception ignored)
+		{
+		}
+		String from = oldState != null ? oldState : "";
+		String to = newState != null ? newState : "";
+		Observation.publish("workflow", outcome, table, getRecord_ID(), node, from + "->" + to,
+				message != null ? message : "", "");
+	}
+
+	private static String workflowOutcome(String state)
+	{
+		if (StateEngine.STATE_Completed.equals(state))
+			return "ok";
+		if (StateEngine.STATE_Aborted.equals(state) || StateEngine.STATE_Terminated.equals(state))
+			return "error";
+		return "blocked";
+	}
 
 	/**
 	 * 	Is Activity closed

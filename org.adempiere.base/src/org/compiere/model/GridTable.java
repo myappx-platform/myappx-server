@@ -101,7 +101,7 @@ public class GridTable extends AbstractTableModel
 	/**
 	 * 
 	 */
-	private static final long serialVersionUID = 1852095729689900949L;
+	private static final long serialVersionUID = 7128450933162744102L;
 
 	protected static final String SORTED_DSE_EVENT = "Sorted";
 	
@@ -1801,7 +1801,7 @@ public class GridTable extends AbstractTableModel
 				if ("DBExecuteError".equals(msg))
 					info = "DBExecuteError:" + info;
 			}
-			fireDataStatusEEvent(msg, info, true);
+			fireDataStatusEEvent(msg, info, true, false);
 			return SAVE_ERROR;
 		}
 		else if (m_virtual && po.get_ID() > 0)
@@ -2944,7 +2944,19 @@ public class GridTable extends AbstractTableModel
 	 */
 	protected void fireDataStatusEEvent (String AD_Message, String info, boolean isError)
 	{
-		if (isError) {
+		fireDataStatusEEvent(AD_Message, info, isError, true);
+	}
+
+	/**
+	 *  Create and fire Data Status Error Event.
+	 *  @param AD_Message message
+	 *  @param info info
+	 *  @param isError error
+	 *  @param observe when false, the UI event is still fired and no observation is published
+	 */
+	protected void fireDataStatusEEvent (String AD_Message, String info, boolean isError, boolean observe)
+	{
+		if (isError && observe) {
 			String code = AD_Message != null ? AD_Message : "";
 			String message = info != null ? info : "";
 			if (message.startsWith("DBExecuteError:")) {

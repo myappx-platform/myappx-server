@@ -120,7 +120,7 @@ public class GridTab implements DataStatusListener, Evaluatee, Serializable
 	/**
 	 * 
 	 */
-	private static final long serialVersionUID = -3682316929715061899L;
+	private static final long serialVersionUID = -4472018101830112701L;
 
 	public static final String DEFAULT_STATUS_MESSAGE = "NavigateOrUpdate";
 
@@ -2877,6 +2877,96 @@ public class GridTab implements DataStatusListener, Evaluatee, Serializable
 	{
 		return m_mTable.getFields();
 	}   //  getField
+
+	/**
+	 * Displayed fields on this tab after display, mandatory, and read-only logic.
+	 * At most 80 fields. Does not save, run callouts, or return field values.
+	 * @return evaluated field states
+	 */
+	public List<FieldState> fieldStates()
+	{
+		List<FieldState> states = new ArrayList<FieldState>();
+		GridField[] fields = getFields();
+		if (fields == null)
+			return states;
+		for (int i = 0; i < fields.length && states.size() < 80; i++)
+		{
+			GridField field = fields[i];
+			if (field == null || !field.isDisplayed(true))
+				continue;
+			String column = field.getColumnName();
+			if (column == null || column.length() == 0)
+				continue;
+			String label = field.getHeader();
+			if (label == null || label.trim().length() == 0)
+				label = column;
+			states.add(new FieldState(column, label, field.isMandatory(true), !field.isEditable(true), isFieldEmpty(field)));
+		}
+		return states;
+	}
+
+	private static boolean isFieldEmpty(GridField field)
+	{
+		Object value = field.getValue();
+		if (value == null)
+			return true;
+		if (value instanceof String)
+			return ((String) value).trim().length() == 0;
+		if (value instanceof Number && DisplayType.isID(field.getDisplayType()))
+			return ((Number) value).intValue() == 0;
+		return false;
+	}
+
+	/**
+	 * Evaluated display state of one field. The field value is not included.
+	 */
+	public static final class FieldState
+	{
+		private final String column;
+		private final String label;
+		private final boolean mandatory;
+		private final boolean readOnly;
+		private final boolean empty;
+
+		private FieldState(String column, String label, boolean mandatory, boolean readOnly, boolean empty)
+		{
+			this.column = column;
+			this.label = label;
+			this.mandatory = mandatory;
+			this.readOnly = readOnly;
+			this.empty = empty;
+		}
+
+		/** @return column name */
+		public String getColumn()
+		{
+			return column;
+		}
+
+		/** @return field label */
+		public String getLabel()
+		{
+			return label;
+		}
+
+		/** @return true when the field is mandatory in the current context */
+		public boolean isMandatory()
+		{
+			return mandatory;
+		}
+
+		/** @return true when the field is read-only in the current context */
+		public boolean isReadOnly()
+		{
+			return readOnly;
+		}
+
+		/** @return true when the field has no value */
+		public boolean isEmpty()
+		{
+			return empty;
+		}
+	}
 
 	/**
 	 *  Set New Value and call Callout

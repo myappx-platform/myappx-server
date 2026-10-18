@@ -111,6 +111,13 @@ public class CalloutEngine implements Callout
 			else
 				args = new Object[] {ctx, Integer.valueOf(WindowNo), mTab, mField, value}; 
 			retValue = (String)method.invoke(this, args);
+			if (retValue != null && retValue.trim().length() > 0)
+			{
+				String column = m_mField != null ? m_mField.getColumnName() : "";
+				String table = m_mTab != null ? m_mTab.getTableName() : "";
+				int recordId = m_mTab != null ? m_mTab.getRecord_ID() : 0;
+				Observation.publish("callout", "blocked", table, recordId, column, "CalloutMessage", retValue, "");
+			}
 		}
 		catch (Exception e)
 		{
