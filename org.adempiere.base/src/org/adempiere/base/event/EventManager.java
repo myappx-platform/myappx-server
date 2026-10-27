@@ -359,6 +359,11 @@ public class EventManager implements IEventManager {
 		Env.setContext(context, Env.AD_ROLE_ID, Env.getAD_Role_ID(Env.getCtx()));
 		Env.setContext(context, Env.M_WAREHOUSE_ID, Env.getContext(Env.getCtx(), Env.M_WAREHOUSE_ID));
 		Env.setContext(context, Env.LANGUAGE, Env.getContext(Env.getCtx(), Env.LANGUAGE));
+		// AD_SESSION_ID routes async observation subscribers (e.g. Copilot SessionTrace)
+		int sessionId = Env.getContextAsInt(Env.getCtx(), Env.AD_SESSION_ID);
+		if (sessionId > 0) {
+			Env.setContext(context, Env.AD_SESSION_ID, sessionId);
+		}
 		return context;
 	}
 

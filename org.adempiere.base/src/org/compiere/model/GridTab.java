@@ -47,6 +47,7 @@ import org.adempiere.base.Core;
 import org.adempiere.base.GeneratedCodeCoverageExclusion;
 import org.adempiere.base.IColumnCallout;
 import org.adempiere.base.IColumnCalloutFactory;
+import org.adempiere.base.event.Observation;
 import org.adempiere.model.MTabCustomization;
 import org.adempiere.util.ContextRunnable;
 import org.adempiere.util.ICalloutUI;
@@ -3040,7 +3041,12 @@ public class GridTab implements DataStatusListener, Evaluatee, Serializable
 	public String processFieldChange (GridField changedField)
 	{
 		processDependencies (changedField);
-		return processCallout (changedField);
+		String err = processCallout (changedField);
+		if (Util.isEmpty(err) && changedField != null)
+		{
+			Observation.publishFieldChange(getTableName(), getRecord_ID(), changedField.getColumnName());
+		}
+		return err;
 	}   //  processFieldChange
 
 	/**
@@ -3286,6 +3292,8 @@ public class GridTab implements DataStatusListener, Evaluatee, Serializable
 				{
 					log.log(Level.SEVERE, "start", e);
 					retValue = 	"Callout Invalid: " + e.toString();
+					Observation.publish("callout", "error", getTableName(), getRecord_ID(),
+							field.getColumnName(), "CalloutError", retValue, "");
 					return retValue;
 				}
 				finally
@@ -3295,8 +3303,12 @@ public class GridTab implements DataStatusListener, Evaluatee, Serializable
 				if (!Util.isEmpty(retValue))		//	interrupt on first error
 				{
 					log.severe (retValue);
+					Observation.publish("callout", "blocked", getTableName(), getRecord_ID(),
+							field.getColumnName(), "CalloutMessage", retValue, "");
 					return retValue;
 				}
+				Observation.publish("callout", "ok", getTableName(), getRecord_ID(),
+						field.getColumnName(), "", "", field.getColumnName());
 			}
 		}
 

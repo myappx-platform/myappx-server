@@ -2907,10 +2907,22 @@ public abstract class PO
 		//	OK
 		if (success)
 		{
+			// Capture dirty column names before m_newValues is cleared (needed for afterCommit observation)
+			final StringBuilder changedCols = new StringBuilder();
+			for (int i = 0; i < p_info.getColumnCount(); i++)
+			{
+				if (is_ValueChanged(i))
+				{
+					if (changedCols.length() > 0)
+						changedCols.append(',');
+					changedCols.append(p_info.getColumnName(i));
+				}
+			}
+			final String observationChanged = changedCols.toString();
 			Trx trx = Util.isEmpty(get_TrxName()) ? null : Trx.get(get_TrxName(), false);
 			if (trx == null || !trx.isActive())
 			{
-				firePostSaveEvent(newRecord);
+				firePostSaveEvent(newRecord, observationChanged);
 			}
 			else
 			{
@@ -2922,7 +2934,7 @@ public abstract class PO
 					@Override
 					public void afterCommit(Trx trx, boolean success) {
 						if (success) {
-							firePostSaveEvent(newRecord);
+							firePostSaveEvent(newRecord, observationChanged);
 						}
 						trx.removeTrxEventListener(this);
 					}
@@ -3012,12 +3024,16 @@ public abstract class PO
 	 * Fire post save event to notify interested parties that a PO has been saved.<br/>
 	 * This method is called after the transaction has been committed successfully.
 	 * @param newRecord
+	 * @param changedColumns comma-separated column names for observation (no values)
 	 */
-	private void firePostSaveEvent(boolean newRecord) {
+	private void firePostSaveEvent(boolean newRecord, String changedColumns) {
 		//post osgi event
 		String topic = newRecord ? IEventTopics.PO_POST_CREATE : IEventTopics.PO_POST_UPADTE;
 		Event event = EventManager.newEvent(topic, this, true);
 		EventManager.getInstance().postEvent(event);
+		// Copilot / observation bus: one save/ok after commit (UI GridTable no longer publishes separately)
+		Observation.publish("save", "ok", get_TableName(), get_ID(), "",
+				newRecord ? "Created" : "Saved", "", changedColumns != null ? changedColumns : "");
 	}
 
 	/**

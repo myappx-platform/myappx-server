@@ -116,8 +116,9 @@ public interface IEventTopics {
 	public static final String POST_INCREMENTAL_PACK_IN = "idempiere/postIncrementalPackIn";
 
 	/**
-	 * Structured save, callout, and document-action observation for Copilot.
-	 * Published asynchronously. Subscribers must not affect the business transaction.
+	 * Structured observation for Copilot and similar subscribers: save, callout,
+	 * doc_action, process, workflow, ui, tab, field. Published asynchronously.
+	 * Subscribers must not affect the business transaction. Payloads never include field values.
 	 */
 	public static final String OBSERVATION = "idempiere/observation";
 }

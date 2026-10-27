@@ -15,12 +15,20 @@ package org.adempiere.base.event;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
+import org.compiere.model.MSysConfig;
+import org.compiere.util.Env;
 import org.osgi.service.event.Event;
 
 /**
  * Best-effort publisher for {@link IEventTopics#OBSERVATION}.
- * Failures are swallowed so a subscriber cannot break save, callout, or document actions.
+ * Failures are swallowed so a subscriber cannot break save, callout, document, or UI paths.
+ * <p>
+ * Payload never includes field values — only table, record id, column names, codes, and short messages.
+ * Kinds: {@code save}, {@code callout}, {@code doc_action}, {@code process}, {@code workflow},
+ * {@code ui}, {@code tab}, {@code field}.
  */
 public final class Observation {
 
@@ -35,7 +43,11 @@ public final class Observation {
 	public static final String CHANGED = "changed";
 
 	public static final String SCHEMA_VERSION = "1";
+
+	private static final int DEFAULT_FIELD_THROTTLE_MS = 500;
+
 	private static final int MESSAGE_LIMIT = 200;
+	private static final ConcurrentHashMap<String, AtomicLong> FIELD_LAST_MS = new ConcurrentHashMap<>();
 
 	private Observation() {
 	}
@@ -44,12 +56,12 @@ public final class Observation {
 	 * Post one observation. Column values are not included. {@code changed} is a comma-separated
 	 * list of column names.
 	 *
-	 * @param kind save, callout, or doc_action
-	 * @param outcome ok, blocked, or error
+	 * @param kind save, callout, doc_action, process, workflow, ui, tab, or field
+	 * @param outcome ok, blocked, error, open, activate, close, select, …
 	 * @param table table name, may be empty
 	 * @param recordId record id, or 0
 	 * @param column column name, may be empty
-	 * @param code AD message or action code
+	 * @param code AD message, action code, window id, tab id, …
 	 * @param message short text; SQL from DBExecuteError is dropped
 	 * @param changed column names only
 	 */
@@ -78,6 +90,41 @@ public final class Observation {
 			data.put(CHANGED, changed != null ? changed : "");
 			Event event = EventManager.newEvent(IEventTopics.OBSERVATION, data, true);
 			manager.postEvent(event);
+		} catch (Throwable ignored) {
+			// observation must not affect the business path
+		}
+	}
+
+	/**
+	 * Publish {@code kind=field} when SysConfig {@link MSysConfig#IDEMPIERE_OBSERVATION_FIELD} is Y,
+	 * throttled per session+column.
+	 */
+	public static void publishFieldChange(String table, int recordId, String column) {
+		if (column == null || column.isBlank()) {
+			return;
+		}
+		try {
+			if (!MSysConfig.getBooleanValue(MSysConfig.IDEMPIERE_OBSERVATION_FIELD, false,
+					Env.getAD_Client_ID(Env.getCtx()))) {
+				return;
+			}
+			int throttle = MSysConfig.getIntValue(MSysConfig.IDEMPIERE_OBSERVATION_FIELD_THROTTLE_MS,
+					DEFAULT_FIELD_THROTTLE_MS, Env.getAD_Client_ID(Env.getCtx()));
+			if (throttle < 0) {
+				throttle = DEFAULT_FIELD_THROTTLE_MS;
+			}
+			int sessionId = Env.getContextAsInt(Env.getCtx(), Env.AD_SESSION_ID);
+			String key = sessionId + "|" + (table != null ? table : "") + "|" + column;
+			long now = System.currentTimeMillis();
+			AtomicLong last = FIELD_LAST_MS.computeIfAbsent(key, k -> new AtomicLong(0));
+			long prev = last.get();
+			if (now - prev < throttle) {
+				return;
+			}
+			if (!last.compareAndSet(prev, now)) {
+				return;
+			}
+			publish("field", "ok", table != null ? table : "", recordId, column, "", "", column);
 		} catch (Throwable ignored) {
 			// observation must not affect the business path
 		}

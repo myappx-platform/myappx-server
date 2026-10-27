@@ -1682,7 +1682,6 @@ public class GridTable extends AbstractTableModel
 	{
 		if (! m_importing) // Just use trx when importing
 			m_trxName = null;
-		StringBuilder changedColumns = new StringBuilder();				
 		//
 		Object[] rowData = getDataAtRow(m_rowChanged);
 		//
@@ -1723,9 +1722,6 @@ public class GridTable extends AbstractTableModel
 			//	***	Data changed ***
 			else if (m_inserting || isValueChanged(oldValue, value) )
 			{
-				if (changedColumns.length() > 0)
-					changedColumns.append(',');
-				changedColumns.append(columnName);
 				//	Check existence
 				int poIndex = po.get_ColumnIndex(columnName);
 				if (poIndex < 0)
@@ -1880,8 +1876,8 @@ public class GridTable extends AbstractTableModel
 		}
 		//
 		log.config("fini");
-		int recordId = savedId > 0 ? savedId : po.get_ID();
-		Observation.publish("save", "ok", getTableName(), recordId, "", "Saved", "", changedColumns.toString());
+		// save/ok observation is published from PO.firePostSaveEvent after successful commit
+		// (avoids duplicate events and skips rolled-back saves).
 		return SAVE_OK;
 	}	//	dataSavePO
 	

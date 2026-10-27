@@ -25,6 +25,7 @@ package org.adempiere.webui.adwindow;
 
 import java.util.Properties;
 
+import org.adempiere.base.event.Observation;
 import org.adempiere.util.Callback;
 import org.adempiere.webui.LayoutUtils;
 import org.adempiere.webui.component.Tabpanel;
@@ -35,6 +36,7 @@ import org.adempiere.webui.session.SessionManager;
 import org.adempiere.webui.util.ZKUpdateUtil;
 import org.compiere.model.X_AD_CtxHelp;
 import org.compiere.util.CLogger;
+import org.compiere.util.Env;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.Page;
 import org.zkoss.zk.ui.event.Event;
@@ -162,6 +164,22 @@ public class ADWindowContent extends AbstractADWindowContent
     	}
     	else if (event.getName().equals(WindowContainer.ON_WINDOW_CONTAINER_SELECTION_CHANGED_EVENT)) {
     		SessionManager.getAppDesktop().updateHelpContext(X_AD_CtxHelp.CTXTYPE_Tab, adTabbox.getSelectedGridTab().getAD_Tab_ID());
+    		try {
+    			String table = "";
+    			int recordId = 0;
+    			int tabId = 0;
+    			if (adTabbox.getSelectedGridTab() != null) {
+    				table = adTabbox.getSelectedGridTab().getTableName();
+    				recordId = adTabbox.getSelectedGridTab().getRecord_ID();
+    				tabId = adTabbox.getSelectedGridTab().getAD_Tab_ID();
+    			}
+    			int windowId = Env.getContextAsInt(Env.getCtx(), getWindowNo(), "_WinInfo_AD_Window_ID");
+    			Observation.publish("ui", "activate", table, recordId, "",
+    					Integer.toString(windowId), getTitle() != null ? getTitle() : "",
+    					tabId > 0 ? Integer.toString(tabId) : "");
+    		} catch (Throwable ignored) {
+    			// observation must not affect tab activation
+    		}
     	}
     	else {
     		super.onEvent(event);

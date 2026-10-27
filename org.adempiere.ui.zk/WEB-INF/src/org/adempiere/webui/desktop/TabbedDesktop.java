@@ -15,6 +15,7 @@ package org.adempiere.webui.desktop;
 
 import java.util.List;
 
+import org.adempiere.base.event.Observation;
 import org.adempiere.util.Callback;
 import org.adempiere.webui.AdempiereIdGenerator;
 import org.adempiere.webui.adwindow.ADWindow;
@@ -428,6 +429,14 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 		public void run() {			
 			if (adWindow.createPart(tabPanel) != null ) {
 				tab.setClosable(true);
+				try {
+					int windowId = adWindow.getAD_Window_ID();
+					String title = adWindow.getTitle() != null ? adWindow.getTitle() : "";
+					Observation.publish("ui", "open", "", 0, "",
+							Integer.toString(windowId), title, "");
+				} catch (Throwable ignored) {
+					// observation must not affect window open
+				}
 				if (callback != null) {
 					callback.onCallback(adWindow);
 				}

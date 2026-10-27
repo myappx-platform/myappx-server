@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.adempiere.base.event.Observation;
 import org.adempiere.util.Callback;
 import org.adempiere.webui.AdempiereWebUI;
 import org.adempiere.webui.ClientInfo;
@@ -226,8 +227,23 @@ public abstract class AbstractDesktop extends AbstractUIPart implements IDesktop
 	@Override
 	public void unregisterWindow(int WindowNo) {
 		List<Object> windows = getWindows();
-		if (windows != null && WindowNo < windows.size())
+		Object win = null;
+		if (windows != null && WindowNo < windows.size()) {
+			win = windows.get(WindowNo);
 			windows.set(WindowNo, null);
+		}
+		try {
+			String code = Integer.toString(WindowNo);
+			String message = "";
+			if (win instanceof ADWindow) {
+				ADWindow adw = (ADWindow) win;
+				code = Integer.toString(adw.getAD_Window_ID());
+				message = adw.getTitle() != null ? adw.getTitle() : "";
+			}
+			Observation.publish("ui", "close", "", 0, "", code, message, "");
+		} catch (Throwable ignored) {
+			// observation must not affect window close
+		}
 		Env.clearWinContext(WindowNo);
 	}
    	

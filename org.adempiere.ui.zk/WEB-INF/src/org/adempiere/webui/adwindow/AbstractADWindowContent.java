@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
+import org.adempiere.base.event.Observation;
 import org.adempiere.exceptions.DBException;
 import org.adempiere.util.Callback;
 import org.adempiere.webui.AdempiereIdGenerator;
@@ -1817,6 +1818,17 @@ public abstract class AbstractADWindowContent extends AbstractUIPart implements 
 		updateToolbar();
 
 		breadCrumb.setNavigationToolbarVisibility(!adTabbox.getSelectedGridTab().isSortTab());
+
+		try {
+			org.compiere.model.GridTab selected = adTabbox.getSelectedGridTab();
+			String table = selected != null ? selected.getTableName() : "";
+			int recordId = selected != null ? selected.getRecord_ID() : 0;
+			int tabId = selected != null ? selected.getAD_Tab_ID() : 0;
+			Observation.publish("tab", "select", table, recordId, "",
+					Integer.toString(tabId), title != null ? title : "", "");
+		} catch (Throwable ignored) {
+			// observation must not affect tab switch
+		}
 
 		if (callback != null)
 			callback.onCallback(true);

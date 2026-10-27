@@ -137,6 +137,10 @@ public class MSysConfig extends X_AD_SysConfig
 	public static final String GRIDTABLE_INITIAL_COUNT_TIMEOUT_IN_SECONDS = "GRIDTABLE_INITIAL_COUNT_TIMEOUT_IN_SECONDS";
     public static final String HTML_REPORT_MINIFY = "HTML_REPORT_MINIFY";
     public static final String HTML_REPORT_THEME = "HTML_REPORT_THEME";
+    /** When Y, publish Observation kind=field on GridTab field changes (column names only). Default N. */
+    public static final String IDEMPIERE_OBSERVATION_FIELD = "IDEMPIERE_OBSERVATION_FIELD";
+    /** Min ms between field observations for the same session+column. Default 500. */
+    public static final String IDEMPIERE_OBSERVATION_FIELD_THROTTLE_MS = "IDEMPIERE_OBSERVATION_FIELD_THROTTLE_MS";
     public static final String IBAN_VALIDATION = "IBAN_VALIDATION";
     public static final String IDENTIFIER_SEPARATOR = "IDENTIFIER_SEPARATOR";
     public static final String IMAGE_DB_STORAGE_SAVE_AS_ZIP = "IMAGE_DB_STORAGE_SAVE_AS_ZIP";
