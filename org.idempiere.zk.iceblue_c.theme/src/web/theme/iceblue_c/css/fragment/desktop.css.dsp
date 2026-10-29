@@ -380,8 +380,10 @@
 .desktop-north, .desktop-center {
 	border: none;
 }
-.desktop-center {
-	padding-top: 1px;
+.desktop-center,
+.desktop-center > .z-center-body {
+	padding-top: 0;
+	background: var(--myappx-canvas);
 }
 .desktop-center > .z-center-body {
 	padding: 0px;
@@ -392,8 +394,23 @@
 
 <%-- tabbox for application windows --%>
 .desktop-tabbox {
-	padding-top: 0px; 
-	border: none;
+	padding-top: 0px;
+	border: 1px solid var(--myappx-border);
+	box-sizing: border-box;
+	background: #fff;
+}
+.desktop-tabbox > .z-tabs {
+	margin-top: 0 !important;
+	background: #fff;
+}
+.desktop-tabbox > .z-toolbar.z-toolbar-tabs {
+	background: #fff;
+	top: 0 !important;
+	right: 0 !important;
+	margin: 0 !important;
+	padding-top: 0;
+	padding-right: 4px;
+	box-sizing: border-box;
 }
 @media screen and (max-width: 360px) {
 	.desktop-tabbox .z-tab {
@@ -453,7 +470,8 @@
 	margin: 0;
 	padding: 0;
 	position: relative !important;
-	border: 1px solid var(--myappx-border) !important;
+	border: none !important;
+	border-top: 1px solid var(--myappx-border) !important;
 }
 .desktop-tabpanel > .z-window-embedded {
 	border: none;
@@ -510,7 +528,7 @@
 	border: none;
 	border-left: 1px solid var(--zk-desktop-column-border-color);
 	background-color: var(--zk-desktop-column-background-color);
-	padding-top: 2px; 
+	padding-top: 0;
 }
 .desktop-right-column + .z-east-splitter,  .desktop-right-column.z-east {
 	border-top: none; 
