@@ -13,6 +13,11 @@
 	border: none !important;
 }
 
+.desktop-header #logo {
+	height: 32px;
+	width: auto;
+}
+
 .desktop-header {
 	background-color: ${u:sysConfig("ZK_DESKTOP_HEADER_BACKGROUND_COLOR", "#C7E8FF")}; <%-- SysConfig with default to #C7E8FF --%>
 	background-image: linear-gradient(var(--myappx-accent), var(--myappx-canvas));
@@ -411,6 +416,41 @@
 	padding-top: 0;
 	padding-right: 4px;
 	box-sizing: border-box;
+	height: 36px;
+	display: flex;
+	align-items: center;
+}
+.desktop-tabbox > .z-tabs,
+.ai-copilot-east-tabbox.z-tabbox > .z-tabs {
+	height: 36px !important;
+	max-height: 36px !important;
+	min-height: 36px !important;
+	padding: 0 !important;
+	margin-top: 0 !important;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+}
+.desktop-tabbox > .z-tabs .z-tab-content,
+.ai-copilot-east-tabbox.z-tabbox > .z-tabs .z-tab-content {
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+}
+.desktop-tabbox > .z-tabs .z-tab,
+.ai-copilot-east-tabbox.z-tabbox > .z-tabs .z-tab {
+	height: 36px;
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+}
+.ai-copilot-east-tabbox.z-tabbox {
+	margin: 0;
+	box-sizing: border-box;
+	border-top: 1px solid var(--myappx-border);
 }
 @media screen and (max-width: 360px) {
 	.desktop-tabbox .z-tab {
@@ -534,6 +574,11 @@
 	border-top: none; 
 	border-left: 0px solid transparent;
 	background-color: var(--myappx-canvas);
+}
+.desktop-right-column.z-east,
+.desktop-right-column > .z-east-body {
+	padding-top: 0 !important;
+	margin-top: 0 !important;
 }
 .desktop-right-column .z-east-body {
 	border-left: none;
