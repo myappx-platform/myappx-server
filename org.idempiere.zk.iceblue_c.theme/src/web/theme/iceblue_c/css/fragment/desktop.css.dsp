@@ -14,12 +14,8 @@
 }
 
 .desktop-header #logo {
-	width: 32px;
 	height: 32px;
-	min-width: 32px;
-	max-width: 32px;
-	flex: 0 0 32px;
-	object-fit: contain;
+	width: auto;
 }
 
 .desktop-header {
