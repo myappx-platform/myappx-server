@@ -4,6 +4,7 @@ Bundle-Name: iDempiere Extension Management
 Bundle-SymbolicName: org.idempiere.extension.manager
 Bundle-Version: 14.0.0.qualifier
 Import-Package: org.osgi.framework;version="[1.10.0,2.0.0]",
+ org.osgi.framework.wiring;version="1.2.0",
  org.osgi.service.component.annotations,
  org.osgi.service.event,
  com.github.benmanes.caffeine;version="3.1.8",

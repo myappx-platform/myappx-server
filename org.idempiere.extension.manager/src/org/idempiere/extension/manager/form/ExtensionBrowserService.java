@@ -44,6 +44,8 @@ import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.adempiere.base.Core;
 import org.adempiere.base.markdown.IMarkdownRenderer;
@@ -67,6 +69,8 @@ import org.compiere.util.Msg;
 import org.idempiere.extension.manager.ExtensionManagerActivator;
 import org.idempiere.extension.manager.event.PackageImpDelegate;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkEvent;
+import org.osgi.framework.wiring.FrameworkWiring;
 import org.osgi.framework.Version;
 import org.osgi.framework.VersionRange;
 
@@ -198,6 +202,58 @@ public class ExtensionBrowserService {
 			absolutePath = absolutePath.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/");
 		}
 		return absolutePath;
+	}
+
+	/**
+	 * Stop, uninstall and refresh every bundle with this symbolic name.
+	 * A singleton stays selected after {@link Bundle#uninstall()} until the framework refreshes it.
+	 * @param symbolicName
+	 * @throws Exception refresh timed out or the framework reported an error
+	 */
+	private void retireSameSymbolicName(String symbolicName) throws Exception {
+		if (ExtensionManagerActivator.context == null) {
+			throw new AdempiereException(Msg.getMsg(Env.getCtx(), "BundleContextNotFound"));
+		}
+		List<Bundle> existing = new ArrayList<>();
+		for (Bundle bundle : ExtensionManagerActivator.context.getBundles()) {
+			if (bundle.getBundleId() == 0 || !symbolicName.equals(bundle.getSymbolicName()))
+				continue;
+			existing.add(bundle);
+			try {
+				int state = bundle.getState();
+				if (state == Bundle.ACTIVE || state == Bundle.STARTING) {
+					bundle.stop();
+				}
+				if (bundle.getState() != Bundle.UNINSTALLED) {
+					bundle.uninstall();
+				}
+			} catch (Exception e) {
+				log.log(Level.WARNING, "Stop/Uninstall failed for " + symbolicName, e);
+			}
+		}
+		if (existing.isEmpty())
+			return;
+
+		FrameworkWiring wiring = ExtensionManagerActivator.context.getBundle(0).adapt(FrameworkWiring.class);
+		if (wiring == null) {
+			throw new AdempiereException("FrameworkWiring is not available");
+		}
+		CountDownLatch latch = new CountDownLatch(1);
+		FrameworkEvent[] outcome = new FrameworkEvent[1];
+		wiring.refreshBundles(existing, event -> {
+			outcome[0] = event;
+			latch.countDown();
+		});
+		if (!latch.await(60, TimeUnit.SECONDS)) {
+			throw new AdempiereException("Timed out refreshing bundle " + symbolicName);
+		}
+		FrameworkEvent event = outcome[0];
+		if (event != null && event.getType() == FrameworkEvent.ERROR) {
+			Throwable cause = event.getThrowable();
+			if (cause == null)
+				throw new AdempiereException("Failed to refresh bundle " + symbolicName);
+			throw new AdempiereException("Failed to refresh bundle " + symbolicName + ": " + cause.getMessage(), cause);
+		}
 	}
 
 	/**
@@ -888,6 +944,9 @@ public class ExtensionBrowserService {
 			}
 			String downloadUrl = bundleObj.get("downloadUrl").getAsString();
 			String symbolicName = bundleObj.get("symbolicName").getAsString();
+			// Drop the previous singleton revision before installing. uninstall() alone
+			// leaves it selected, so the new bundle cannot resolve until refresh.
+			retireSameSymbolicName(symbolicName);
 			String id = metadata.getId();
 			PackageImpDelegate.addExtension(symbolicName, id);
 			
