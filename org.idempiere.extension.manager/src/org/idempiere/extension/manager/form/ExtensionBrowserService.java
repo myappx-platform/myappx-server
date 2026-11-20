@@ -277,6 +277,11 @@ public class ExtensionBrowserService {
 		if (wiring == null) {
 			throw new AdempiereException("FrameworkWiring is not available");
 		}
+		// Last line of defence. refreshBundles always expands the seed to its dependents, so the
+		// caller's own check can be defeated by a manifest it did not account for - which is how a
+		// WAB refresh once took the whole application down. Verify the real closure here, where
+		// the framework has the final say, and refuse rather than stop a server bundle.
+		assertClosureIsRefreshable(wiring, bundles, symbolicName);
 		CountDownLatch latch = new CountDownLatch(1);
 		FrameworkEvent[] outcome = new FrameworkEvent[1];
 		wiring.refreshBundles(bundles, event -> {
@@ -501,6 +506,11 @@ public class ExtensionBrowserService {
 	 * Bundles that must survive a refresh for the server to stay usable. Refreshing any of them
 	 * restarts Jetty/ZK/Hazelcast and takes the running application down, which is not something
 	 * an extension install should ever do implicitly.
+	 * <p>
+	 * The Jetty OSGi boot and the OSGi HTTP service are listed because a WAB is wired to them
+	 * through {@code DeploymentManager}: refreshing a web bundle pulls them in, and once they are
+	 * in the closure {@code ui.zk} and {@code org.adempiere.server} follow. Leaving them out made
+	 * the check under-report the blast radius of exactly the bundle this form installs.
 	 */
 	private static final java.util.Set<String> REFRESH_FORBIDDEN = new java.util.HashSet<>(java.util.Arrays.asList(
 			"org.eclipse.osgi",
@@ -510,27 +520,58 @@ public class ExtensionBrowserService {
 			"org.adempiere.pipo",
 			"org.eclipse.jetty.server",
 			"org.eclipse.jetty.ee8.server",
+			"org.eclipse.jetty.ee8.osgi.boot",
+			"org.adempiere.eclipse.equinox.http.servlet",
+			"org.eclipse.equinox.http.servlet",
 			"com.hazelcast"));
 
 	/**
 	 * Extensions whose refresh was measured to touch nothing but themselves.
 	 * <p>
-	 * Measured with {@code FrameworkWiring.getDependencyClosure} on a running server where the
-	 * bundle was ACTIVE and {@code removalPending} was empty: the closure of
-	 * {@code org.idempiere.myappx.plugin.aic} contained only the bundle itself, so a refresh
-	 * restarts no core bundle.
+	 * Deliberately empty, and this must not be filled in on the strength of a test where the
+	 * bundle was placed in {@code plugins/}. Such a bundle resolves its {@code Require-Bundle}
+	 * headers without the web container, and its measured closure came out as {@code size=1}.
 	 * <p>
-	 * The earlier "cannot hot update, would restart org.adempiere.base/adempiere.server/..." was
-	 * produced while the bundle had a stale revision and pending removals. That closure was an
-	 * artifact of the dirty state, not of the wiring: see the REFRESH-CLOSURE log lines.
-	 * <p>
-	 * Refreshing a WAB still redeploys its web context, so {@code /ai} blips while requests in
-	 * flight are cut. That is a known, accepted cost for this extension, and it does not restart
-	 * the server or the iDempiere UI.
+	 * A bundle installed through this form is a different animal: it is a WAB, and Jetty's
+	 * {@code DeploymentManager} plus the OSGi HTTP service wire it to {@code ui.zk}, {@code zk},
+	 * {@code org.adempiere.server} and the rest. Measured on a real form-installed extension the
+	 * closure was {@code size=119} with 7 forbidden bundles, so an in-place refresh stops the
+	 * whole application. That is not a hot update, and allowing it here caused exactly that outage.
 	 */
-	private static final java.util.Set<String> REFRESH_SAFE_EXTENSIONS =
-			new java.util.HashSet<>(java.util.Arrays.asList(
-					"org.idempiere.myappx.plugin.aic"));
+	private static final java.util.Set<String> REFRESH_SAFE_EXTENSIONS = java.util.Collections.emptySet();
+
+	/**
+	 * Verify the framework's own refresh closure before any bundle is stopped.
+	 * <p>
+	 * {@code refreshBundles} always expands the seed with everything that depends on it, so a
+	 * caller's earlier check can be defeated by wiring it did not model - a WAB is wired through
+	 * {@code DeploymentManager} in a way that is invisible to a manifest-only review. Asking the
+	 * framework here is the only check that cannot be bypassed.
+	 * @param wiring framework wiring used for the refresh
+	 * @param bundles seed bundles about to be refreshed
+	 * @param symbolicName extension being updated, used in the error
+	 * @throws AdempiereException when the closure contains a bundle that cannot restart
+	 */
+	private void assertClosureIsRefreshable(FrameworkWiring wiring, Collection<Bundle> bundles, String symbolicName)
+			throws AdempiereException {
+		Collection<Bundle> closure = wiring.getDependencyClosure(bundles);
+		if (closure == null || closure.isEmpty())
+			return;
+		List<String> blockers = new ArrayList<>();
+		for (Bundle dependent : closure) {
+			String name = dependent.getSymbolicName();
+			if (name != null && isRefreshForbidden(name) && !name.equals(symbolicName))
+				blockers.add(name);
+		}
+		if (!blockers.isEmpty()) {
+			// Refused before anything was stopped, so the running revision keeps serving.
+			log.warning("REFUSED refresh of " + symbolicName + ": closure of " + closure.size()
+					+ " would restart " + String.join(", ", blockers));
+			throw new AdempiereException("Refusing to refresh " + symbolicName + ": it would also restart "
+					+ String.join(", ", blockers)
+					+ ". Update it at the next restart instead.");
+		}
+	}
 
 	/**
 	 * Bundles whose refresh would take the server down.
@@ -543,8 +584,6 @@ public class ExtensionBrowserService {
 		// The diagnostic runs first, for every update attempt including the allowed ones: it is the
 		// evidence that decides whether an extension can be added to REFRESH_SAFE_EXTENSIONS.
 		logRefreshClosure(target, symbolicName);
-		if (REFRESH_SAFE_EXTENSIONS.contains(symbolicName))
-			return blockers;
 		if (ExtensionManagerActivator.context == null)
 			throw new AdempiereException(Msg.getMsg(Env.getCtx(), "BundleContextNotFound"));
 		FrameworkWiring wiring = ExtensionManagerActivator.context.getBundle(0).adapt(FrameworkWiring.class);
@@ -753,51 +792,6 @@ public class ExtensionBrowserService {
 		}
 		logRefreshClosure(bundle, extensionId);
 		return true;
-	}
-
-	/**
-	 * Perform a real in-place refresh of one bundle, for verification on a live server.
-	 * <p>
-	 * This is the same path {@link #replaceOrInstallBundle} takes once the closure is known to be
-	 * safe: stop, update, refresh, restart. Exposed so the refresh behaviour can be proven against
-	 * a running framework instead of assumed.
-	 * @param symbolicName bundle to refresh
-	 * @param jarFile new revision
-	 * @return a one line outcome describing the closure and the resulting state
-	 * @throws Exception when the framework rejects the revision
-	 */
-	public String hotUpdateBundleForTest(String symbolicName, File jarFile) throws Exception {
-		if (ExtensionManagerActivator.context == null)
-			throw new AdempiereException("BundleContextNotFound");
-		if (!jarFile.isFile())
-			throw new AdempiereException("Jar not found: " + jarFile);
-
-		Bundle target = null;
-		for (Bundle candidate : bundlesNamed(symbolicName)) {
-			if (candidate.getState() != Bundle.UNINSTALLED) {
-				target = candidate;
-				break;
-			}
-		}
-		if (target == null)
-			return "no live bundle named " + symbolicName;
-
-		logRefreshClosure(target, symbolicName);
-		Version before = target.getVersion();
-		int stateBefore = target.getState();
-		boolean wasActive = stateBefore == Bundle.ACTIVE || stateBefore == Bundle.STARTING;
-
-		if (wasActive)
-			target.stop();
-		try (java.io.FileInputStream fis = new java.io.FileInputStream(jarFile)) {
-			target.update(fis);
-		}
-		refreshBundlesAndWait(Collections.singletonList(target), symbolicName);
-		if (wasActive && target.getState() != Bundle.ACTIVE)
-			target.start();
-
-		return "was=" + before + "/" + stateName(stateBefore)
-				+ " now=" + target.getVersion() + "/" + stateName(target.getState());
 	}
 
 	/**
@@ -1639,18 +1633,35 @@ public class ExtensionBrowserService {
 	 * Update MExtension record to Installed state
 	 * @param extension
 	 */
+	/**
+	 * Record an install as complete.
+	 * <p>
+	 * Tolerates a framework that is already shutting down. A refresh that cascaded into a server
+	 * bundle tears the application down while this method runs, and the model layer then fails
+	 * with a NullPointerException from {@code BaseActivator.getBundleContext()}. The install did
+	 * succeed, so log it and leave the row for the next start rather than aborting the process
+	 * with an exception that hides the real cause.
+	 * @param extension metadata of the installed extension
+	 */
 	public void handleInstallationSuccess(ExtensionMetadata extension) {
 		String extensionId = extension.getId();
-		if (extensionId != null) {
-			MExtension mExtension = new Query(Env.getCtx(), MExtension.Table_Name, "ExtensionId=?", null)
+		if (extensionId == null)
+			return;
+		MExtension mExtension;
+		try {
+			mExtension = new Query(Env.getCtx(), MExtension.Table_Name, "ExtensionId=?", null)
 					.setParameters(extensionId)
 					.first();
-			if (mExtension != null) {
-				if (extension.hasVersion())
-					mExtension.setExtensionVersion(extension.getVersion());
-				mExtension.setExtensionState(MExtension.EXTENSIONSTATE_Installed);
-				mExtension.saveEx();
-			}
+		} catch (RuntimeException e) {
+			log.log(Level.WARNING, "Cannot record install of " + extensionId
+					+ " because the framework is shutting down; it will settle on the next start", e);
+			return;
+		}
+		if (mExtension != null) {
+			if (extension.hasVersion())
+				mExtension.setExtensionVersion(extension.getVersion());
+			mExtension.setExtensionState(MExtension.EXTENSIONSTATE_Installed);
+			mExtension.saveEx();
 		}
 	}
 
@@ -1689,8 +1700,10 @@ public class ExtensionBrowserService {
 						bundle.uninstall();
 					}
 				} catch (Exception e) {
-					log.log(Level.SEVERE, "Failed to cleanup bundle " + bundle.getSymbolicName()
-							+ " after installation failure", e);
+					// A shutting-down framework refuses these calls; the bundles are about to be
+					// torn down anyway, so there is nothing to recover here.
+					log.log(Level.WARNING, "Failed to cleanup bundle " + bundle.getSymbolicName()
+							+ " after installation failure (framework may be stopping)", e);
 				}
 			}
 		}
@@ -1958,7 +1971,21 @@ public class ExtensionBrowserService {
 			}
 			if (statusCallback != null)
 				statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "StartingExtensionBundle", new Object[]{bundle.getSymbolicName()}));
-			bundle.start();			
+			// The framework can be shutting down here: a refresh that cascaded into a server bundle
+			// tears the application down while this loop runs, and starting a bundle then fails
+			// inside BaseActivator with a NullPointerException from a null bundle context. Report
+			// that as a failed install instead of an unexplained NPE in the process log.
+			try {
+				bundle.start();
+			} catch (org.osgi.framework.BundleException e) {
+				throw new AdempiereException("Bundle " + bundle.getSymbolicName()
+						+ " was installed but could not be started: " + e.getMessage()
+						+ ". If the server is shutting down, restart it to finish the install.", e);
+			} catch (IllegalStateException e) {
+				throw new AdempiereException("Bundle " + bundle.getSymbolicName()
+						+ " was installed but the framework is no longer available: " + e.getMessage()
+						+ ". Restart the server to finish the install.", e);
+			}
 		}
 
 		if (twoPackBundles.size() > 0) {
