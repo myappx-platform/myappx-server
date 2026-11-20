@@ -37,6 +37,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -86,10 +87,54 @@ public class ExtensionBrowserService {
 	private static final CLogger log = CLogger.getCLogger(ExtensionBrowserService.class);
 	/** Placeholder for an extension row created before any bundle is installed */
 	private static final String NOT_INSTALLED_VERSION = "0.0.0";
+	/** An install that has been "in progress" for longer than this is treated as abandoned */
+	private static final long STALE_INSTALL_MINUTES = 10;
+	private static volatile boolean staleInstallsChecked = false;
 	private HttpClient httpClient;
 
 	public ExtensionBrowserService() {
 		httpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.ALWAYS).build();
+		recoverStaleInstalls();
+	}
+
+	/**
+	 * Turn abandoned EXTENSIONSTATE_Installing rows into EXTENSIONSTATE_Error.
+	 *
+	 * InstallExtension.doIt sets Installing before touching the bundles and clears it in a finally
+	 * block. When the install tears the framework down (an OSGi refresh that restarts Jetty), that
+	 * finally block cannot write any more - BaseActivator.getBundleContext() is already null - and
+	 * the row stays Installing forever, which blocks every later install with
+	 * "Extension is already being installed". Recover here: the operator opening Extension
+	 * Management is a reliable moment with the DB up and the framework healthy.
+	 */
+	private void recoverStaleInstalls() {
+		if (staleInstallsChecked)
+			return;
+		synchronized (ExtensionBrowserService.class) {
+			if (staleInstallsChecked)
+				return;
+			staleInstallsChecked = true;
+		}
+		try {
+			java.sql.Timestamp cutoff = new java.sql.Timestamp(
+					System.currentTimeMillis() - STALE_INSTALL_MINUTES * 60L * 1000L);
+			List<MExtension> stale = new Query(Env.getCtx(), MExtension.Table_Name,
+					"ExtensionState=? AND Updated<?", null)
+					.setParameters(MExtension.EXTENSIONSTATE_Installing, cutoff)
+					.setOnlyActiveRecords(true)
+					.list();
+			for (MExtension extension : stale) {
+				log.warning("Install of " + extension.getExtensionId() + " did not finish (state Installing since "
+						+ extension.getUpdated() + "); marking it Error so it can be installed again");
+				extension.setExtensionState(MExtension.EXTENSIONSTATE_Error);
+				extension.saveEx();
+			}
+			if (!stale.isEmpty())
+				CacheMgt.get().reset(MExtension.Table_Name);
+		} catch (Exception e) {
+			// Never block opening the form because the cleanup failed.
+			log.log(Level.WARNING, "Failed to recover abandoned extension installs", e);
+		}
 	}
 
 	/**
@@ -335,22 +380,21 @@ public class ExtensionBrowserService {
 			if (bundle.getBundleId() != target.getBundleId())
 				extras.add(bundle);
 		}
-		for (Bundle extra : extras) {
-			try {
-				int state = extra.getState();
-				if (state == Bundle.ACTIVE || state == Bundle.STARTING)
-					extra.stop();
-				if (extra.getState() != Bundle.UNINSTALLED)
-					extra.uninstall();
-			} catch (Exception e) {
-				log.log(Level.WARNING, "Stop/Uninstall failed for " + symbolicName, e);
-			}
+		if (!extras.isEmpty()) {
+			// Duplicate revisions of a singleton cannot both resolve. Dropping the extras needs a
+			// framework refresh, and a refresh propagates to every bundle that depends on this one -
+			// including org.adempiere.ui.zk and org.adempiere.server, which tears the running
+			// Jetty down. Refuse instead of crashing the server.
+			throw new AdempiereException("Cannot update " + symbolicName + ": " + extras.size()
+					+ " additional revision(s) of this bundle are still installed. Remove them by restarting the server"
+					+ " with only the new jar in place, then install again.");
 		}
-		refreshBundlesAndWait(extras, symbolicName);
-		for (Bundle bundle : bundlesNamed(symbolicName)) {
-			if (bundle.getBundleId() != target.getBundleId() && bundle.getState() != Bundle.UNINSTALLED)
-				throw new AdempiereException("Bundle " + symbolicName + " is still selected after refresh");
-		}
+
+		// Bundle.update(InputStream) replaces this bundle's current revision, and the previous
+		// revision stays selected until a refresh retires it - so a refresh is unavoidable. But a
+		// refresh also restarts every bundle that depends on this one. Check the blast radius
+		// BEFORE touching the bundle, so a refused update leaves it exactly as it was.
+		assertRefreshIsSafe(target, symbolicName);
 
 		int state = target.getState();
 		if (state == Bundle.ACTIVE || state == Bundle.STARTING)
@@ -364,6 +408,60 @@ public class ExtensionBrowserService {
 				throw new AdempiereException("Bundle " + symbolicName + " is still selected after refresh");
 		}
 		return target;
+	}
+
+	/**
+	 * Bundles that must survive a refresh for the server to stay usable. Refreshing any of them
+	 * restarts Jetty/ZK/Hazelcast and takes the running application down, which is not something
+	 * an extension install should ever do implicitly.
+	 */
+	private static final java.util.Set<String> REFRESH_FORBIDDEN = new java.util.HashSet<>(java.util.Arrays.asList(
+			"org.eclipse.osgi",
+			"org.adempiere.server",
+			"org.adempiere.base",
+			"org.adempiere.ui.zk",
+			"org.adempiere.pipo",
+			"org.eclipse.jetty.server",
+			"org.eclipse.jetty.ee8.server",
+			"com.hazelcast"));
+
+	/**
+	 * Reject an update whose refresh would restart a server bundle.
+	 * @param target bundle about to be refreshed
+	 * @param symbolicName extension being updated, used in the message
+	 * @throws AdempiereException when the dependency closure contains a bundle that cannot restart
+	 */
+	private void assertRefreshIsSafe(Bundle target, String symbolicName) throws Exception {
+		if (ExtensionManagerActivator.context == null)
+			throw new AdempiereException(Msg.getMsg(Env.getCtx(), "BundleContextNotFound"));
+		FrameworkWiring wiring = ExtensionManagerActivator.context.getBundle(0).adapt(FrameworkWiring.class);
+		if (wiring == null)
+			return;
+
+		List<String> blockers = new ArrayList<>();
+		Collection<Bundle> closure = wiring.getDependencyClosure(Collections.singletonList(target));
+		if (closure != null) {
+			for (Bundle dependent : closure) {
+				String name = dependent.getSymbolicName();
+				if (name == null || name.equals(symbolicName))
+					continue;
+				if (REFRESH_FORBIDDEN.contains(name)) {
+					blockers.add(name);
+					continue;
+				}
+				for (String prefix : REFRESH_FORBIDDEN) {
+					if (name.startsWith(prefix + ".")) {
+						blockers.add(name);
+						break;
+					}
+				}
+			}
+		}
+		if (!blockers.isEmpty()) {
+			throw new AdempiereException("Cannot hot update " + symbolicName
+					+ ": refreshing it would also restart " + String.join(", ", blockers)
+					+ ". Stop the server, replace the bundle, then start it again.");
+		}
 	}
 
 	/**
