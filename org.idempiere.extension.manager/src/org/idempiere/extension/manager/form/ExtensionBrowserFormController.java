@@ -741,8 +741,6 @@ public class ExtensionBrowserFormController implements IFormController {
 	 */
 	private void onUpdate(ExtensionMetadata extension) {
 		try {
-			//need to uninstall first before install
-			service.uninstallBundles(extension);
 			onInstall(extension);
 		} catch (Exception e) {
 			log.log(Level.SEVERE, "Update cleanup failed", e);

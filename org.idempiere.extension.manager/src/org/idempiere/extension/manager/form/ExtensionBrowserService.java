@@ -37,6 +37,8 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Properties;
@@ -82,6 +84,8 @@ import com.google.gson.JsonParser;
 public class ExtensionBrowserService {
 
 	private static final CLogger log = CLogger.getCLogger(ExtensionBrowserService.class);
+	/** Placeholder for an extension row created before any bundle is installed */
+	private static final String NOT_INSTALLED_VERSION = "0.0.0";
 	private HttpClient httpClient;
 
 	public ExtensionBrowserService() {
@@ -205,42 +209,24 @@ public class ExtensionBrowserService {
 	}
 
 	/**
-	 * Stop, uninstall and refresh every bundle with this symbolic name.
-	 * A singleton stays selected after {@link Bundle#uninstall()} until the framework refreshes it.
-	 * @param symbolicName
+	 * Wait until a package refresh finishes. A singleton stays selected until this returns.
+	 * @param bundles bundles to refresh; empty does nothing
+	 * @param symbolicName used in timeout and error text
 	 * @throws Exception refresh timed out or the framework reported an error
 	 */
-	private void retireSameSymbolicName(String symbolicName) throws Exception {
+	private void refreshBundlesAndWait(Collection<Bundle> bundles, String symbolicName) throws Exception {
+		if (bundles == null || bundles.isEmpty())
+			return;
 		if (ExtensionManagerActivator.context == null) {
 			throw new AdempiereException(Msg.getMsg(Env.getCtx(), "BundleContextNotFound"));
 		}
-		List<Bundle> existing = new ArrayList<>();
-		for (Bundle bundle : ExtensionManagerActivator.context.getBundles()) {
-			if (bundle.getBundleId() == 0 || !symbolicName.equals(bundle.getSymbolicName()))
-				continue;
-			existing.add(bundle);
-			try {
-				int state = bundle.getState();
-				if (state == Bundle.ACTIVE || state == Bundle.STARTING) {
-					bundle.stop();
-				}
-				if (bundle.getState() != Bundle.UNINSTALLED) {
-					bundle.uninstall();
-				}
-			} catch (Exception e) {
-				log.log(Level.WARNING, "Stop/Uninstall failed for " + symbolicName, e);
-			}
-		}
-		if (existing.isEmpty())
-			return;
-
 		FrameworkWiring wiring = ExtensionManagerActivator.context.getBundle(0).adapt(FrameworkWiring.class);
 		if (wiring == null) {
 			throw new AdempiereException("FrameworkWiring is not available");
 		}
 		CountDownLatch latch = new CountDownLatch(1);
 		FrameworkEvent[] outcome = new FrameworkEvent[1];
-		wiring.refreshBundles(existing, event -> {
+		wiring.refreshBundles(bundles, event -> {
 			outcome[0] = event;
 			latch.countDown();
 		});
@@ -254,6 +240,130 @@ public class ExtensionBrowserService {
 				throw new AdempiereException("Failed to refresh bundle " + symbolicName);
 			throw new AdempiereException("Failed to refresh bundle " + symbolicName + ": " + cause.getMessage(), cause);
 		}
+	}
+
+	private List<Bundle> bundlesNamed(String symbolicName) {
+		List<Bundle> found = new ArrayList<>();
+		if (ExtensionManagerActivator.context == null)
+			return found;
+		for (Bundle bundle : ExtensionManagerActivator.context.getBundles()) {
+			if (bundle.getBundleId() != 0 && symbolicName.equals(bundle.getSymbolicName()))
+				found.add(bundle);
+		}
+		return found;
+	}
+
+	private List<Bundle> removalPendingNamed(String symbolicName) {
+		List<Bundle> found = new ArrayList<>();
+		if (ExtensionManagerActivator.context == null)
+			return found;
+		FrameworkWiring wiring = ExtensionManagerActivator.context.getBundle(0).adapt(FrameworkWiring.class);
+		if (wiring == null)
+			return found;
+		for (Bundle bundle : wiring.getRemovalPendingBundles()) {
+			if (symbolicName.equals(bundle.getSymbolicName()))
+				found.add(bundle);
+		}
+		return found;
+	}
+
+	/**
+	 * Catalog version used to reject an already-newer install. Bundle version wins when present;
+	 * otherwise the extension version. Missing both means no comparison.
+	 */
+	private Version declaredBundleVersion(ExtensionMetadata extension, JsonObject bundleObj) {
+		if (bundleObj != null && bundleObj.has("version") && !bundleObj.get("version").isJsonNull()) {
+			String bundleVersion = bundleObj.get("version").getAsString();
+			if (bundleVersion != null && !bundleVersion.isBlank())
+				return Version.parseVersion(bundleVersion.trim());
+		}
+		if (extension != null && extension.hasVersion()) {
+			String metadataVersion = extension.getVersion();
+			if (metadataVersion != null && !metadataVersion.isBlank())
+				return Version.parseVersion(metadataVersion.trim());
+		}
+		return null;
+	}
+
+	private Bundle preferLiveBundle(List<Bundle> live) {
+		Bundle resolved = null;
+		Bundle installed = null;
+		for (Bundle bundle : live) {
+			int state = bundle.getState();
+			if (state == Bundle.ACTIVE || state == Bundle.STARTING)
+				return bundle;
+			if (resolved == null && state == Bundle.RESOLVED)
+				resolved = bundle;
+			else if (installed == null && state == Bundle.INSTALLED)
+				installed = bundle;
+		}
+		if (resolved != null)
+			return resolved;
+		if (installed != null)
+			return installed;
+		return live.get(0);
+	}
+
+	/**
+	 * Update the current bundle in place, or install one new bundle after pending removals are gone.
+	 * A second install while the old singleton revision is still selected cannot resolve.
+	 */
+	private Bundle replaceOrInstallBundle(String symbolicName, String downloadUrl, File jarFile) throws Exception {
+		if (ExtensionManagerActivator.context == null) {
+			throw new AdempiereException(Msg.getMsg(Env.getCtx(), "BundleContextNotFound"));
+		}
+		List<Bundle> pending = removalPendingNamed(symbolicName);
+		refreshBundlesAndWait(pending, symbolicName);
+
+		List<Bundle> live = new ArrayList<>();
+		for (Bundle bundle : bundlesNamed(symbolicName)) {
+			if (bundle.getState() != Bundle.UNINSTALLED)
+				live.add(bundle);
+		}
+		if (live.isEmpty()) {
+			if (!removalPendingNamed(symbolicName).isEmpty()) {
+				throw new AdempiereException("Bundle " + symbolicName + " is still selected after refresh");
+			}
+			try (java.io.FileInputStream fis = new java.io.FileInputStream(jarFile)) {
+				return ExtensionManagerActivator.context.installBundle(downloadUrl, fis);
+			}
+		}
+
+		Bundle target = preferLiveBundle(live);
+		List<Bundle> extras = new ArrayList<>();
+		for (Bundle bundle : live) {
+			if (bundle.getBundleId() != target.getBundleId())
+				extras.add(bundle);
+		}
+		for (Bundle extra : extras) {
+			try {
+				int state = extra.getState();
+				if (state == Bundle.ACTIVE || state == Bundle.STARTING)
+					extra.stop();
+				if (extra.getState() != Bundle.UNINSTALLED)
+					extra.uninstall();
+			} catch (Exception e) {
+				log.log(Level.WARNING, "Stop/Uninstall failed for " + symbolicName, e);
+			}
+		}
+		refreshBundlesAndWait(extras, symbolicName);
+		for (Bundle bundle : bundlesNamed(symbolicName)) {
+			if (bundle.getBundleId() != target.getBundleId() && bundle.getState() != Bundle.UNINSTALLED)
+				throw new AdempiereException("Bundle " + symbolicName + " is still selected after refresh");
+		}
+
+		int state = target.getState();
+		if (state == Bundle.ACTIVE || state == Bundle.STARTING)
+			target.stop();
+		try (java.io.FileInputStream fis = new java.io.FileInputStream(jarFile)) {
+			target.update(fis);
+		}
+		refreshBundlesAndWait(Collections.singletonList(target), symbolicName);
+		for (Bundle bundle : bundlesNamed(symbolicName)) {
+			if (bundle.getBundleId() != target.getBundleId() && bundle.getState() != Bundle.UNINSTALLED)
+				throw new AdempiereException("Bundle " + symbolicName + " is still selected after refresh");
+		}
+		return target;
 	}
 
 	/**
@@ -703,7 +813,6 @@ public class ExtensionBrowserService {
 	 */
 	public MExtension prepareInstall(ExtensionMetadata extension) throws Exception {
 		String id = extension.getId();
-		String version = extension.getVersion();
 
 		MExtension mExtension = new Query(Env.getCtx(), MExtension.Table_Name, "ExtensionId=?", null)
 				.setParameters(id)
@@ -712,31 +821,23 @@ public class ExtensionBrowserService {
 		if (mExtension != null && MExtension.EXTENSIONSTATE_Installing.equals(mExtension.getExtensionState())) {
 			throw new IllegalStateException(Msg.getMsg(Env.getCtx(), "ExtensionAlreadyInstalling")); //Extension is already being installed
 		}
-		
-		// Version check and bundles cleanup
-		if (extension.hasBundles()) {
+
+		if (extension.hasBundles() && ExtensionManagerActivator.context != null) {
 			JsonArray bundles = extension.getBundles();
 			for (JsonElement bel : bundles) {
 				JsonObject b = bel.getAsJsonObject();
-				if (b.has("symbolicName")) {
-					String symbolicName = b.get("symbolicName").getAsString();
-					Version newVersion = Version.parseVersion(b.has("version") ? b.get("version").getAsString() : "0.0.0");
-					for (Bundle bundle : ExtensionManagerActivator.context.getBundles()) {
-						if (symbolicName.equals(bundle.getSymbolicName())) {
-							Version currentVersion = bundle.getVersion();
-							if (currentVersion != null && currentVersion.compareTo(newVersion) > 0) {
-								throw new IllegalStateException(Msg.getMsg(Env.getCtx(), "ExtensionBundleNewerVersionInstalled", new Object[] {symbolicName, currentVersion})); //A newer version of bundle {0} ({1}) is already installed
-							}
-							// If exists and is not newer, uninstall it
-							try {
-								if (bundle.getState() == Bundle.ACTIVE) {
-									bundle.stop();
-								}
-								bundle.uninstall();
-							} catch (Exception e) {
-								log.log(Level.WARNING, "Failed to uninstall existing bundle " + symbolicName, e);
-							}
-						}
+				if (!b.has("symbolicName"))
+					continue;
+				Version declared = declaredBundleVersion(extension, b);
+				if (declared == null)
+					continue;
+				String symbolicName = b.get("symbolicName").getAsString();
+				for (Bundle bundle : ExtensionManagerActivator.context.getBundles()) {
+					if (!symbolicName.equals(bundle.getSymbolicName()) || bundle.getState() == Bundle.UNINSTALLED)
+						continue;
+					Version currentVersion = bundle.getVersion();
+					if (currentVersion != null && currentVersion.compareTo(declared) > 0) {
+						throw new IllegalStateException(Msg.getMsg(Env.getCtx(), "ExtensionBundleNewerVersionInstalled", new Object[] {symbolicName, currentVersion})); //A newer version of bundle {0} ({1}) is already installed
 					}
 				}
 			}
@@ -746,8 +847,9 @@ public class ExtensionBrowserService {
 			mExtension = new MExtension(Env.getCtx(), 0, null);
 			mExtension.setExtensionId(id);
 			mExtension.setName(extension.getName());
+			// ExtensionVersion is mandatory; the installed version is written after a successful start
+			mExtension.setExtensionVersion(NOT_INSTALLED_VERSION);
 		}
-		mExtension.setExtensionVersion(version);
 		mExtension.setExtensionMetadata(extension.toString());
 		mExtension.setExtensionState(MExtension.EXTENSIONSTATE_Installing);
 		mExtension.saveEx();
@@ -766,6 +868,8 @@ public class ExtensionBrowserService {
 					.setParameters(extensionId)
 					.first();
 			if (mExtension != null) {
+				if (extension.hasVersion())
+					mExtension.setExtensionVersion(extension.getVersion());
 				mExtension.setExtensionState(MExtension.EXTENSIONSTATE_Installed);
 				mExtension.saveEx();
 			}
@@ -944,9 +1048,6 @@ public class ExtensionBrowserService {
 			}
 			String downloadUrl = bundleObj.get("downloadUrl").getAsString();
 			String symbolicName = bundleObj.get("symbolicName").getAsString();
-			// Drop the previous singleton revision before installing. uninstall() alone
-			// leaves it selected, so the new bundle cannot resolve until refresh.
-			retireSameSymbolicName(symbolicName);
 			String id = metadata.getId();
 			PackageImpDelegate.addExtension(symbolicName, id);
 			
@@ -959,30 +1060,27 @@ public class ExtensionBrowserService {
 				statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "DownloadingBundleFrom", new Object[]{bundleObj.get("symbolicName").getAsString(), downloadUrl}));
 
 			File tempZip = File.createTempFile("extbundle_", ".jar");
-			
-			try (FileOutputStream fos = new FileOutputStream(tempZip)) {
-				streamTo(downloadUrl, fos);
-			}
-			
-			if (bundleObj.has("sha256")) {
-				String expectedSha256 = bundleObj.get("sha256").getAsString();
-				String actualSha256 = calculateSHA256(tempZip);
-				if (!expectedSha256.equalsIgnoreCase(actualSha256)) {
-					tempZip.delete();
-					//BundleSHA256HashNotMatch SHA256 hash mismatch for bundle {0}. Expected {1} but got {2}
-					throw new AdempiereException(Msg.getMsg(Env.getCtx(), "BundleSHA256HashNotMatch", new Object[]{downloadUrl, expectedSha256, actualSha256}));
+			try {
+				try (FileOutputStream fos = new FileOutputStream(tempZip)) {
+					streamTo(downloadUrl, fos);
 				}
+
+				if (bundleObj.has("sha256")) {
+					String expectedSha256 = bundleObj.get("sha256").getAsString();
+					String actualSha256 = calculateSHA256(tempZip);
+					if (!expectedSha256.equalsIgnoreCase(actualSha256)) {
+						//BundleSHA256HashNotMatch SHA256 hash mismatch for bundle {0}. Expected {1} but got {2}
+						throw new AdempiereException(Msg.getMsg(Env.getCtx(), "BundleSHA256HashNotMatch", new Object[]{downloadUrl, expectedSha256, actualSha256}));
+					}
+				}
+
+				if (statusCallback != null)
+					statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "InstallingExtensionBundle", new Object[]{downloadUrl}));
+				Bundle bundle = replaceOrInstallBundle(symbolicName, downloadUrl, tempZip);
+				installedBundles.add(bundle);
+			} finally {
+				tempZip.delete();
 			}
-			
-			if (statusCallback != null)
-				statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "InstallingExtensionBundle", new Object[]{downloadUrl}));
-			Bundle bundle;
-			try (java.io.FileInputStream fis = new java.io.FileInputStream(tempZip)) {
-				bundle = ExtensionManagerActivator.context.installBundle(downloadUrl, fis);
-			}
-			installedBundles.add(bundle);
-			
-			tempZip.delete();
 		}
 		
 		// Start (Activate) Bundles and Check for 2pack		
