@@ -105,17 +105,27 @@ public class InstallExtension extends SvrProcess {
 				processUI.statusUpdate(msg);
 			addLog(msg);
 		};
-			
+
+		// Only bundles created by this attempt may be removed if a later step fails. The bundle
+		// that is already serving an installed extension is not ours to uninstall.
+		java.util.List<org.osgi.framework.Bundle> createdBundles = new java.util.ArrayList<>();
+		org.idempiere.extension.manager.form.ExtensionBrowserService.InstallResult result;
 		try {
-			service.installExtension(extensionMetadata, statusCallback);
-		} finally {
-			extension.load(null);
-			if (extension.getExtensionState().equals(MExtension.EXTENSIONSTATE_Installing)) {
-				extension.setExtensionState(MExtension.EXTENSIONSTATE_Error);
-				extension.saveEx();
-			}
+			result = service.installExtension(extensionMetadata, statusCallback, createdBundles);
+		} catch (Exception e) {
+			service.handleInstallationFailure(extensionMetadata, createdBundles);
+			throw e;
 		}
 
+		if (result.isStaged()) {
+			// The running revision is untouched; the new one starts with the server. Report it as a
+			// pending restart instead of an error, because nothing failed. The row is already
+			// Installing and is settled by reconcileStagedInstalls once the new revision runs.
+			return "Update staged for " + String.join(", ", result.getStagedBundles())
+					+ ". Restart the server to apply it.";
+		}
+
+		// installExtension already recorded success (version + Installed); nothing to add here.
 		return "@ExtensionInstallSuccessfully@";
 	}	
 }

@@ -51,8 +51,12 @@ public class ExtensionManagerActivator implements BundleActivator {
 
 	@Activate
 	public void activate(BundleContext context) {
+		ExtensionManagerActivator.context = context;
 		mappedFormFactory.scan(context, "org.idempiere.extension.manager.form");
 		mappedProcessFactory.scan(context, "org.idempiere.extension.manager.process");
+		// A staged update waits for a start. Do it here, before anything user facing runs, so the
+		// extension is already at its new revision the first time the form is opened.
+		org.idempiere.extension.manager.event.StagedBundleStarter.startWhenReady(context);
 	}
 
 	@Override

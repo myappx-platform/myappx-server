@@ -94,6 +94,12 @@ public class ExtensionBrowserFormController implements IFormController {
 	public ExtensionBrowserFormController() {
 		form = new ExtensionBrowserForm();
 		service = new ExtensionBrowserService();
+		// A staged update completes when the server starts, so settle it before the lists load.
+		try {
+			service.reconcileStagedInstalls();
+		} catch (Exception e) {
+			log.log(Level.WARNING, "Failed to reconcile staged extension updates", e);
+		}
 		Selectors.wireEventListeners(form, this);
 		
 		form.addEventListener("onBuildArchive", ev -> buildArchive((ExtensionMetadata) ev.getData()));
@@ -349,6 +355,26 @@ public class ExtensionBrowserFormController implements IFormController {
 	}
 
 	/**
+	 * Whether a revision of this extension is parked for the next restart.
+	 * @param extension extension shown in the details area
+	 * @return true when the operator still has to restart
+	 */
+	private boolean isStagedFor(ExtensionMetadata extension) {
+		if (extension == null || extension.getId() == null)
+			return false;
+		try {
+			MExtension mExtension = new Query(Env.getCtx(), MExtension.Table_Name, "ExtensionId=?", null)
+					.setParameters(extension.getId())
+					.setOnlyActiveRecords(true)
+					.first();
+			return mExtension != null && service.hasStagedBundle(mExtension);
+		} catch (Exception e) {
+			log.log(Level.FINE, "Cannot read staged state for " + extension.getId(), e);
+			return false;
+		}
+	}
+
+	/**
 	 * Reset the details area for selected extension
 	 */
 	private void resetInfoArea() {
@@ -391,6 +417,9 @@ public class ExtensionBrowserFormController implements IFormController {
 			sb.append("<div><label>iDempiere %s</label><span>".formatted(Msg.getMsg(Env.getCtx(), "Version"))).append(extension.getIDempiereVersion()).append("</span></div>");
 		}
 		sb.append("<div><label>%s</label><span>".formatted(Msg.getMsg(Env.getCtx(), "Updated"))).append(AEnv.sanitize(lastUpdated)).append("</span></div>");
+		if (isStagedFor(extension)) {
+			sb.append("<div><label>Pending</label><span>Restart the server to apply this update</span></div>");
+		}
 		sb.append("</section>");
 
 		// Database section
@@ -505,9 +534,14 @@ public class ExtensionBrowserFormController implements IFormController {
 					.first();
 		}
 
+		// A staged update keeps the row Installing until the new revision is the one running.
+		// Auto-registering here would mark it Installed while the old bundle still serves, and the
+		// pending restart would silently disappear.
+		boolean staged = mExtension != null && service.hasStagedBundle(mExtension);
+
 		// not exists or not install
-		if (mExtension == null || (!MExtension.EXTENSIONSTATE_Installed.equals(mExtension.getExtensionState()) 
-			&& !MExtension.EXTENSIONSTATE_Disabled.equals(mExtension.getExtensionState()))) {
+		if (!staged && (mExtension == null || (!MExtension.EXTENSIONSTATE_Installed.equals(mExtension.getExtensionState()) 
+			&& !MExtension.EXTENSIONSTATE_Disabled.equals(mExtension.getExtensionState())))) {
 			if (service.checkAllBundlesInstalled(extension)) {
 				mExtension = service.autoRegisterExtension(extension);
 				if (mExtension != null) {
@@ -518,10 +552,22 @@ public class ExtensionBrowserFormController implements IFormController {
 			}
 		}
 
-		if (mExtension == null || MExtension.EXTENSIONSTATE_Uninstalled.equals(mExtension.getExtensionState())) {
+		if (staged) {
+			// The new revision is already parked. Another install would only trip the
+			// "already being installed" guard in prepareInstall, so say why the button is off.
+			form.installUpdateButton.setLabel(Msg.getMsg(Env.getCtx(), "Update"));
+			form.installUpdateButton.setVisible(true);
+			form.installUpdateButton.setDisabled(true);
+			form.installUpdateButton.setTooltiptext("Restart the server to apply the staged update");
+			form.uninstallButton.setVisible(true);
+			form.uninstallButton.setDisabled(false);
+			form.enableDisableButton.setVisible(false);
+			form.downloadButton.setDisabled(false);
+		} else if (mExtension == null || MExtension.EXTENSIONSTATE_Uninstalled.equals(mExtension.getExtensionState())) {
 			form.installUpdateButton.setLabel(Msg.getMsg(Env.getCtx(), "Install"));
 			form.installUpdateButton.setVisible(true);
 			form.installUpdateButton.setDisabled(false);
+			form.installUpdateButton.setTooltiptext("");
 			form.uninstallButton.setVisible(false);
 			form.enableDisableButton.setVisible(false);
 			form.downloadButton.setDisabled(false);
@@ -537,6 +583,7 @@ public class ExtensionBrowserFormController implements IFormController {
 				form.installUpdateButton.setVisible(false);
 			}
 			form.installUpdateButton.setDisabled(false);
+			form.installUpdateButton.setTooltiptext("");
 			
 			form.uninstallButton.setVisible(true);
 			form.enableDisableButton.setVisible(true);
@@ -788,7 +835,12 @@ public class ExtensionBrowserFormController implements IFormController {
 							updateButtons(selectedExtension);
 						}
 						loadInstalledExtensions();
-						showNotification(pi.getSummary(), "info");
+						// A blocked update is not a failure: the new revision waits for a restart.
+						if (isStaged(pi.getSummary())) {
+							showNotification(pi.getSummary(), "warning");
+						} else {
+							showNotification(pi.getSummary(), "info");
+						}
 					} else {
 						handleInstallationFailure(pi.getSummary());
 					}
@@ -802,9 +854,19 @@ public class ExtensionBrowserFormController implements IFormController {
 		}
 	}
 
+	/**
+	 * Whether a process summary reports a staged update rather than a completed install.
+	 * @param summary process summary text
+	 * @return true when the message says a restart is needed
+	 */
+	private boolean isStaged(String summary) {
+		return summary != null && summary.contains("Restart the server");
+	}
+
 	private void handleInstallationFailure(String summary) {
 		if (selectedExtension != null) {
-			service.handleInstallationFailure(selectedExtension);
+			// The process already rolled back what it created; nothing more to uninstall here.
+			service.handleInstallationFailure(selectedExtension, java.util.Collections.emptyList());
 			loadInstalledExtensions();
 			updateButtons(selectedExtension);
 		}
