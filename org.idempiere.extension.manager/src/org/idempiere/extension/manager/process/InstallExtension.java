@@ -124,6 +124,14 @@ public class InstallExtension extends SvrProcess {
 					+ " to plugins/. Restart the server to load it.";
 		}
 
+		if (result.isPartiallyWired()) {
+			// The bundle is running, but dependents resolved earlier keep their previous wiring and
+			// will not see its exports. Only a refresh would rewire them, so say a restart is needed
+			// for full effect rather than reporting plain success.
+			return "Installed and running: " + String.join(", ", result.getDependentsAwaitRestart())
+					+ ". Restart the server so dependent bundles can see it.";
+		}
+
 		// installExtension already recorded success (version + Installed); nothing to add here.
 		return "@ExtensionInstallSuccessfully@";
 	}	

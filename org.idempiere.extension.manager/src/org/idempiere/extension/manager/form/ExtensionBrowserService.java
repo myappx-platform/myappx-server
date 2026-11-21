@@ -41,8 +41,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -320,11 +322,17 @@ public class ExtensionBrowserService {
 		private final Bundle bundle;
 		private final boolean created;
 		private final boolean deployed;
+		private final boolean dependentsAwaitRestart;
 
 		BundleInstallResult(Bundle bundle, boolean created, boolean deployed) {
+			this(bundle, created, deployed, false);
+		}
+
+		BundleInstallResult(Bundle bundle, boolean created, boolean deployed, boolean dependentsAwaitRestart) {
 			this.bundle = bundle;
 			this.created = created;
 			this.deployed = deployed;
+			this.dependentsAwaitRestart = dependentsAwaitRestart;
 		}
 
 		public Bundle getBundle() {
@@ -338,6 +346,17 @@ public class ExtensionBrowserService {
 		public boolean isDeployed() {
 			return deployed;
 		}
+
+		/**
+		 * Whether the bundle is running but some dependents keep their previous wiring.
+		 * <p>
+		 * The install succeeded; only a refresh would rewire those dependents, so the operator is
+		 * told that a restart is needed for full effect.
+		 * @return true when at least one dependent is not wired to this bundle yet
+		 */
+		public boolean isDependentsAwaitRestart() {
+			return dependentsAwaitRestart;
+		}
 	}
 
 	/**
@@ -345,9 +364,15 @@ public class ExtensionBrowserService {
 	 */
 	public static final class InstallResult {
 		private final List<String> deployedBundles;
+		private final List<String> dependentsAwaitRestart;
 
 		InstallResult(List<String> deployedBundles) {
+			this(deployedBundles, Collections.emptyList());
+		}
+
+		InstallResult(List<String> deployedBundles, List<String> dependentsAwaitRestart) {
 			this.deployedBundles = deployedBundles;
+			this.dependentsAwaitRestart = dependentsAwaitRestart;
 		}
 
 		/**
@@ -357,8 +382,27 @@ public class ExtensionBrowserService {
 			return deployedBundles;
 		}
 
+		/**
+		 * Bundles that are already running but whose dependents keep their previous wiring.
+		 * <p>
+		 * Distinct from {@link #getDeployedBundles()}: those are not loaded at all, while these are
+		 * serving - only a refresh would connect their dependents.
+		 * @return symbolic names needing a restart for full effect
+		 */
+		public List<String> getDependentsAwaitRestart() {
+			return dependentsAwaitRestart;
+		}
+
 		public boolean isPendingRestart() {
 			return !deployedBundles.isEmpty();
+		}
+
+		/**
+		 * Whether something is running but incomplete.
+		 * @return true when a restart is only needed to rewire dependents
+		 */
+		public boolean isPartiallyWired() {
+			return deployedBundles.isEmpty() && !dependentsAwaitRestart.isEmpty();
 		}
 	}
 
@@ -421,6 +465,327 @@ public class ExtensionBrowserService {
 		log.warning("DEPLOYED " + symbolicName + " " + version + " to " + targetDir
 				+ " (takes effect at the next server start)");
 		return new BundleInstallResult(null, false, true);
+	}
+
+	/**
+	 * Whether this bundle was deployed as files and is therefore owned by {@code bundles.info}.
+	 * <p>
+	 * Matters because a bundle must have exactly one source of truth. A bundle that is present in
+	 * {@code bundles.info} is loaded from {@code plugins/} at start; installing it dynamically as
+	 * well would register a second revision under a different location and leave two records that
+	 * disagree. Such bundles are always updated through a file deployment.
+	 * @param symbolicName bundle to check
+	 * @return true when {@code bundles.info} already has a line for it
+	 */
+	private boolean isFileDeployed(String symbolicName) {
+		File installRoot = bundleInstallRoot();
+		if (installRoot == null)
+			return false;
+		File info = new File(installRoot,
+				"configuration/org.eclipse.equinox.simpleconfigurator/bundles.info");
+		if (!info.isFile())
+			return false;
+		try {
+			for (String line : java.nio.file.Files.readAllLines(info.toPath(), StandardCharsets.UTF_8)) {
+				if (line.isBlank() || line.startsWith("#"))
+					continue;
+				int comma = line.indexOf(',');
+				String existing = comma > 0 ? line.substring(0, comma).trim() : line.trim();
+				if (existing.equals(symbolicName))
+					return true;
+			}
+		} catch (Exception e) {
+			log.log(Level.FINE, "Cannot read bundles.info while checking " + symbolicName, e);
+		}
+		return false;
+	}
+
+	/**
+	 * Install a bundle that is not running yet, directly into the framework.
+	 * <p>
+	 * Per the OSGi specifications this needs no refresh. Core, Bundle Wiring API: the installation
+	 * of a new bundle may allow new wires but must not affect existing wiring until a refresh is
+	 * called. Compendium, Web Applications: a WAB is installed with {@code installBundle} like any
+	 * other bundle, and the Web Extender deploys its context once the bundle is {@code ACTIVE}.
+	 * <p>
+	 * So {@code installBundle} followed by {@code start} is the whole operation. It also means a
+	 * first install behaves differently from an update, which is why there is no closure check here
+	 * - see {@link #dynamicUpdate} for the case that genuinely needs one.
+	 * <p>
+	 * A dependent that was resolved before this install keeps its previous wiring, so it cannot see
+	 * these exports until a refresh. That is reported through
+	 * {@link BundleInstallResult#isDependentsAwaitRestart()} rather than being treated as a failure.
+	 * @param extensionId extension the bundle belongs to
+	 * @param symbolicName bundle to install
+	 * @param jarFile downloaded bundle
+	 * @return the install result, or null when the bundle cannot be installed in place
+	 * @throws Exception when the framework rejects the bundle
+	 */
+	private BundleInstallResult dynamicInstall(String extensionId, String symbolicName, File jarFile) throws Exception {
+		if (ExtensionManagerActivator.context == null)
+			return null;
+		if (isFileDeployed(symbolicName)) {
+			// Already owned by bundles.info: file deployment is the single source of truth.
+			return null;
+		}
+		// Something with the same name is already installed under another location; installing a
+		// second revision is an update, which has its own path.
+		for (Bundle existing : bundlesNamed(symbolicName)) {
+			if (existing.getState() != Bundle.UNINSTALLED)
+				return null;
+		}
+
+		Bundle installed = null;
+		try (java.io.FileInputStream fis = new java.io.FileInputStream(jarFile)) {
+			installed = ExtensionManagerActivator.context.installBundle(jarFile.toURI().toString(), fis);
+			// No refresh and no closure check here, deliberately. Installing a new bundle only
+			// adds wiring; it cannot disturb existing wiring, so nothing needs re-resolving. For a
+			// WAB the Web Extender deploys the context on its own once the bundle reaches ACTIVE.
+			// Checking the refresh closure at this point would reject an install for an operation
+			// that is never performed - that is what wrongly forced a restart on a first install.
+			installed.start();
+			log.warning("INSTALLED " + symbolicName + " " + installed.getVersion()
+					+ " in place; it is running now");
+
+			// A dependent that was already resolved keeps its old wiring until a refresh, so it
+			// will not see this bundle's exported packages yet. That is worth reporting, but it is
+			// not a reason to refuse the install.
+			List<String> unwired = unwiredDependents(installed);
+			if (!unwired.isEmpty()) {
+				log.warning("INSTALLED " + symbolicName + " in place, but " + unwired.size()
+						+ " dependent(s) keep their previous wiring until the next restart: " + unwired);
+			}
+			return new BundleInstallResult(installed, true, false, !unwired.isEmpty());
+		} catch (org.osgi.framework.BundleException e) {
+			// Roll back so a failed attempt leaves no half-installed revision behind.
+			if (installed != null)
+				uninstallQuietly(installed, symbolicName);
+			log.log(Level.WARNING, "In-place install of " + symbolicName
+					+ " failed; falling back to a file deployment", e);
+			return null;
+		}
+	}
+
+	/**
+	 * Bundles that import a package this bundle exports but are still wired elsewhere.
+	 * <p>
+	 * Used only to report that a restart is needed for full effect. A bundle that was resolved
+	 * before the install keeps its existing wiring, so a dependent stays connected to whatever
+	 * provider it had - or to nothing, when the package is new. Installation itself succeeds either
+	 * way; only a refresh would rewire them, and that is the operation this form avoids.
+	 * <p>
+	 * The check reads {@code Import-Package} to find candidates, then confirms against the actual
+	 * package wires. {@code getDependencyClosure} is deliberately not used: it answers "what would a
+	 * refresh affect", not "who is currently connected to me".
+	 * @param installed bundle that was just started
+	 * @return symbolic names of dependents not yet wired to it; empty when all are connected
+	 */
+	private List<String> unwiredDependents(Bundle installed) {
+		List<String> unwired = new ArrayList<>();
+		if (installed == null || ExtensionManagerActivator.context == null)
+			return unwired;
+		Set<String> exported = new HashSet<>(exportedPackagesOf(installed));
+		if (exported.isEmpty())
+			return unwired;
+		for (Bundle candidate : ExtensionManagerActivator.context.getBundles()) {
+			if (candidate.getBundleId() == installed.getBundleId()
+					|| candidate.getState() == Bundle.UNINSTALLED)
+				continue;
+			if (!importsAnyPackageOf(candidate, exported))
+				continue;
+			if (!isWiredTo(candidate, installed))
+				unwired.add(candidate.getSymbolicName());
+		}
+		return unwired;
+	}
+
+	/**
+	 * Whether a bundle's manifest imports any of the given packages.
+	 * @param candidate bundle to inspect
+	 * @param packages package names to look for
+	 * @return true when at least one import matches
+	 */
+	private boolean importsAnyPackageOf(Bundle candidate, Set<String> packages) {
+		String header;
+		try {
+			header = candidate.getHeaders().get("Import-Package");
+		} catch (Exception e) {
+			return false;
+		}
+		if (header == null || header.isBlank())
+			return false;
+		for (String clause : splitHeaderClauses(header)) {
+			String imported = clause.split(";")[0].trim();
+			if (imported.isEmpty())
+				continue;
+			if (packages.contains(imported))
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Whether a bundle is currently wired to another bundle for any package.
+	 * @param dependent bundle whose wires to inspect
+	 * @param provider bundle that should be the provider
+	 * @return true when a package wire connects the dependent to the provider
+	 */
+	private boolean isWiredTo(Bundle dependent, Bundle provider) {
+		try {
+			org.osgi.framework.wiring.BundleWiring wiring =
+					dependent.adapt(org.osgi.framework.wiring.BundleWiring.class);
+			if (wiring == null)
+				return false;
+			long providerId = provider.getBundleId();
+			for (org.osgi.framework.wiring.BundleWire wire : wiring.getRequiredWires(null)) {
+				org.osgi.framework.wiring.BundleRevision revision = wire.getProvider();
+				if (revision != null && revision.getBundle().getBundleId() == providerId)
+					return true;
+			}
+		} catch (Exception e) {
+			log.log(Level.FINE, "Cannot inspect wires of " + dependent.getSymbolicName(), e);
+		}
+		return false;
+	}
+
+	/**
+	 * Refresh one bundle and block until the framework reports it finished.
+	 * <p>
+	 * {@code refreshBundles} is specified to return immediately and complete on another thread, so
+	 * a caller that starts the bundle straight afterwards races the refresh and may have its start
+	 * undone. Waiting for the completion event makes the sequence deterministic.
+	 * @param wiring framework wiring used for the refresh
+	 * @param bundle bundle to refresh
+	 * @param symbolicName used in the timeout message
+	 * @throws InterruptedException when interrupted while waiting
+	 * @throws AdempiereException when the refresh does not complete in time
+	 */
+	private void refreshAndWait(FrameworkWiring wiring, Bundle bundle, String symbolicName)
+			throws InterruptedException {
+		java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+		org.osgi.framework.FrameworkEvent[] outcome = new org.osgi.framework.FrameworkEvent[1];
+		wiring.refreshBundles(Collections.singletonList(bundle), event -> {
+			outcome[0] = event;
+			latch.countDown();
+		});
+		if (!latch.await(60, java.util.concurrent.TimeUnit.SECONDS)) {
+			throw new AdempiereException("Timed out refreshing " + symbolicName);
+		}
+		org.osgi.framework.FrameworkEvent event = outcome[0];
+		if (event != null && event.getType() == org.osgi.framework.FrameworkEvent.ERROR) {
+			Throwable cause = event.getThrowable();
+			throw new AdempiereException("Refresh of " + symbolicName + " reported an error"
+					+ (cause == null ? "" : ": " + cause.getMessage()), cause);
+		}
+	}
+
+	/**
+	 * Try to bring a bundle back after a failed in-place update.
+	 * <p>
+	 * The alternative is leaving it stopped, which silently disables the extension - worse than any
+	 * restart cost. Failures here are logged but not propagated: the caller is already handling the
+	 * original failure and will fall back to a file deployment.
+	 * @param target bundle that was being updated
+	 * @param wasActive whether it was running before the attempt
+	 * @param symbolicName used in log messages
+	 * @param cause the original failure
+	 */
+	private void restartAfterFailedUpdate(Bundle target, boolean wasActive, String symbolicName, Exception cause) {
+		if (wasActive && target.getState() != Bundle.ACTIVE) {
+			try {
+				target.start();
+			} catch (Exception restart) {
+				log.log(Level.SEVERE, "Could not restart " + symbolicName + " after failed in-place update", restart);
+			}
+		}
+		log.log(Level.WARNING, "In-place update of " + symbolicName
+				+ " failed; falling back to a file deployment", cause);
+	}
+
+	/**
+	 * Uninstall a bundle, ignoring and logging any failure.
+	 * <p>
+	 * Used on rollback paths where the original failure is what matters; an uninstall error must
+	 * not mask it. Callers fall back to a file deployment afterwards, which replaces the bundle.
+	 * @param bundle bundle to remove
+	 * @param symbolicName used in the log
+	 */
+	private void uninstallQuietly(Bundle bundle, String symbolicName) {
+		try {
+			if (bundle.getState() != Bundle.UNINSTALLED)
+				bundle.uninstall();
+		} catch (Exception e) {
+			log.log(Level.WARNING, "Could not uninstall " + symbolicName + " during rollback", e);
+		}
+	}
+
+	/**
+	 * Update an already running bundle in place, when the framework says it is safe.
+	 * <p>
+	 * An update creates a new revision but leaves the old wiring serving classes to dependents
+	 * (OSGi Core, Bundle Wiring API). Making the new classes visible therefore requires a refresh,
+	 * and that refresh restarts every bundle in the closure. For a web bundle the closure includes
+	 * Jetty's {@code DeploymentManager} and {@code org.adempiere.server}, so the refresh would take
+	 * the deployed web contexts down - measured at 119 bundles for the AI Copilot WAB.
+	 * <p>
+	 * The closure is computed before anything is touched, so an unsafe case is refused while the
+	 * running revision keeps serving. Callers fall back to a file deployment for that case.
+	 * <p>
+	 * This check belongs here and only here. {@link #dynamicInstall} must not use it: installing a
+	 * new bundle only adds wiring and never disturbs existing wiring, so no refresh is needed and a
+	 * closure check there would refuse an install for an operation that is never performed.
+	 * @param symbolicName bundle to update
+	 * @param jarFile downloaded revision
+	 * @return the install result, or null when the update is not safe to do in place
+	 * @throws Exception when the framework rejects the revision
+	 */
+	private BundleInstallResult dynamicUpdate(String symbolicName, File jarFile) throws Exception {
+		if (ExtensionManagerActivator.context == null)
+			return null;
+		Bundle target = liveBundleNamed(symbolicName);
+		if (target == null)
+			return null;
+		if (isFileDeployed(symbolicName))
+			return null;
+
+		List<String> blockers = closureBlockers(target);
+		if (!blockers.isEmpty()) {
+			log.warning("Not updating " + symbolicName + " in place: its closure would restart "
+					+ String.join(", ", blockers) + "; falling back to a file deployment");
+			return null;
+		}
+
+		int stateBefore = target.getState();
+		boolean wasActive = stateBefore == Bundle.ACTIVE || stateBefore == Bundle.STARTING;
+		try {
+			if (wasActive)
+				target.stop();
+			try (java.io.FileInputStream fis = new java.io.FileInputStream(jarFile)) {
+				target.update(fis);
+			}
+			// Safe by the check above: the closure holds nothing but this bundle. The refresh is
+			// asynchronous by specification, so it must be waited on before the bundle is started -
+			// starting while a refresh runs can be undone by the refresh itself.
+			FrameworkWiring wiring = ExtensionManagerActivator.context.getBundle(0).adapt(FrameworkWiring.class);
+			if (wiring != null)
+				refreshAndWait(wiring, target, symbolicName);
+			if (wasActive && target.getState() != Bundle.ACTIVE)
+				target.start();
+			log.warning("UPDATED " + symbolicName + " to " + target.getVersion()
+					+ " in place; it is running now");
+			return new BundleInstallResult(target, false, false);
+		} catch (InterruptedException e) {
+			// Restore the interrupt flag: swallowing it would hide a shutdown request from the
+			// caller. The bundle is still brought back and the caller falls back to a file deploy.
+			Thread.currentThread().interrupt();
+			restartAfterFailedUpdate(target, wasActive, symbolicName, e);
+			return null;
+		} catch (org.osgi.framework.BundleException e) {
+			// A stopped bundle left behind would silently disable the extension, so try to bring
+			// the previous revision back and let the caller fall back to a file deployment.
+			restartAfterFailedUpdate(target, wasActive, symbolicName, e);
+			return null;
+		}
 	}
 
 	/**
@@ -589,6 +954,50 @@ public class ExtensionBrowserService {
 			"org.adempiere.eclipse.equinox.http.servlet",
 			"org.eclipse.equinox.http.servlet",
 			"com.hazelcast"));
+
+	/**
+	 * Bundles a refresh of {@code seed} would also restart, ignoring the seed itself.
+	 * <p>
+	 * {@code refreshBundles} always expands its argument to every bundle that depends on it, so
+	 * this is the authoritative answer to "is a refresh safe here". It reads the framework's own
+	 * dependency closure rather than a static manifest review: a WAB is wired to Jetty's
+	 * {@code DeploymentManager} in a way that no manifest inspection reveals, and that is exactly
+	 * the case where a refresh tears down deployed web contexts.
+	 * <p>
+	 * An empty list means the bundle can be installed or refreshed in place. A non-empty list means
+	 * the caller must fall back to a file deployment plus restart.
+	 * @param seed bundle about to be refreshed
+	 * @return symbolic names in the closure that must not be restarted; empty when safe
+	 */
+	private List<String> closureBlockers(Bundle seed) {
+		List<String> blockers = new ArrayList<>();
+		if (seed == null || ExtensionManagerActivator.context == null)
+			return blockers;
+		FrameworkWiring wiring = ExtensionManagerActivator.context.getBundle(0).adapt(FrameworkWiring.class);
+		if (wiring == null)
+			return blockers;
+		String selfName = seed.getSymbolicName();
+		Collection<Bundle> closure;
+		try {
+			closure = wiring.getDependencyClosure(Collections.singletonList(seed));
+		} catch (Exception e) {
+			// An unreadable closure is treated as unsafe: the caller then falls back to a restart,
+			// which always works.
+			log.log(Level.WARNING, "Cannot compute dependency closure of " + selfName, e);
+			blockers.add("closure-unavailable");
+			return blockers;
+		}
+		if (closure == null)
+			return blockers;
+		for (Bundle dependent : closure) {
+			String name = dependent.getSymbolicName();
+			if (name == null || name.equals(selfName))
+				continue;
+			if (isRefreshForbidden(name) && !blockers.contains(name))
+				blockers.add(name);
+		}
+		return blockers;
+	}
 
 	/**
 	 * Log the refresh cost of a bundle, purely as evidence.
@@ -822,20 +1231,45 @@ public class ExtensionBrowserService {
 	private List<String> exportedPackagesOf(String symbolicName) {
 		List<String> packages = new ArrayList<>();
 		try {
-			for (Bundle bundle : bundlesNamed(symbolicName)) {
-				String header = bundle.getHeaders().get("Export-Package");
-				if (header == null || header.isBlank())
-					continue;
-				for (String clause : splitHeaderClauses(header)) {
-					String pkg = clause.split(";")[0].trim();
-					if (!pkg.isEmpty() && !packages.contains(pkg))
-						packages.add(pkg);
-				}
-			}
+			for (Bundle bundle : bundlesNamed(symbolicName))
+				collectExportedPackages(bundle, packages);
 		} catch (Exception e) {
 			log.fine("Cannot read exported packages of " + symbolicName + ": " + e.getMessage());
 		}
 		return packages;
+	}
+
+	/**
+	 * Packages exported by one specific bundle instance.
+	 * @param bundle bundle to inspect
+	 * @return exported package names, empty when it exports nothing
+	 */
+	private List<String> exportedPackagesOf(Bundle bundle) {
+		List<String> packages = new ArrayList<>();
+		collectExportedPackages(bundle, packages);
+		return packages;
+	}
+
+	/**
+	 * Append the packages a bundle exports.
+	 * @param bundle bundle to inspect
+	 * @param packages destination list, duplicates are not added
+	 */
+	private void collectExportedPackages(Bundle bundle, List<String> packages) {
+		if (bundle == null)
+			return;
+		try {
+			String header = bundle.getHeaders().get("Export-Package");
+			if (header == null || header.isBlank())
+				return;
+			for (String clause : splitHeaderClauses(header)) {
+				String pkg = clause.split(";")[0].trim();
+				if (!pkg.isEmpty() && !packages.contains(pkg))
+					packages.add(pkg);
+			}
+		} catch (Exception e) {
+			log.fine("Cannot read exported packages of " + bundle.getSymbolicName() + ": " + e.getMessage());
+		}
 	}
 
 	/**
@@ -2088,9 +2522,9 @@ public class ExtensionBrowserService {
 	public InstallResult installExtension(ExtensionMetadata metadata, Callback<String> statusCallback,
 			List<Bundle> createdOut) throws Exception {
 		List<String> deployedBundles = new ArrayList<>();
+		// Bundles whose install succeeded but whose dependents still hold their old wiring.
+		List<String> partiallyWired = new ArrayList<>();
 
-		// Download and deploy each bundle to plugins/. Nothing is installed into the running
-		// framework: the revision on disk is picked up by the next server start.
 		for (JsonElement el : metadata.getBundles()) {
 			JsonObject bundleObj = el.getAsJsonObject();
 			if (!bundleObj.has("downloadUrl")) {
@@ -2127,7 +2561,20 @@ public class ExtensionBrowserService {
 
 				if (statusCallback != null)
 					statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "InstallingExtensionBundle", new Object[]{downloadUrl}));
-				BundleInstallResult result = deployToPlugins(id, symbolicName, tempZip);
+
+				// Routing order matters:
+				//   1. dynamicUpdate - the bundle is running; safe only when its closure holds
+				//      nothing but itself, otherwise the refresh would restart the web stack.
+				//   2. dynamicInstall - the bundle is absent and unknown to bundles.info. Installing
+				//      adds wiring and never disturbs existing wiring, so no refresh and no closure
+				//      check apply: a first install takes effect immediately.
+				//   3. deployToPlugins - the fallback for an unsafe update, requiring a restart.
+				BundleInstallResult result = dynamicUpdate(symbolicName, tempZip);
+				if (result == null)
+					result = dynamicInstall(id, symbolicName, tempZip);
+				if (result == null)
+					result = deployToPlugins(id, symbolicName, tempZip);
+
 				if (result.isDeployed()) {
 					deployedBundles.add(symbolicName);
 					if (statusCallback != null)
@@ -2135,21 +2582,39 @@ public class ExtensionBrowserService {
 						// missing key makes Msg return the key itself, which is what showed up as
 						// "ExtensionBundleStaged" in the process log.
 						statusCallback.onCallback("Deployed " + symbolicName
-								+ " to plugins/; it takes effect at the next server start.");
+								+ " to plugins/; it will load at the next server start.");
+				} else if (result.getBundle() != null) {
+					// Installed or updated in place and already serving.
+					if (result.isCreated() && createdOut != null)
+						createdOut.add(result.getBundle());
+					if (result.isDependentsAwaitRestart())
+						partiallyWired.add(symbolicName);
+					if (statusCallback != null) {
+						if (result.isDependentsAwaitRestart())
+							statusCallback.onCallback("Installed " + symbolicName + " "
+									+ result.getBundle().getVersion()
+									+ "; running now, but dependents need a restart to see it.");
+						else
+							statusCallback.onCallback("Installed " + symbolicName + " "
+									+ result.getBundle().getVersion() + "; it is running now.");
+					}
 				}
 			} finally {
 				tempZip.delete();
 			}
 		}
 
-		// Record the outcome. The version on disk is already the new one, so the row is settled
-		// here rather than left in Installing - the only thing outstanding is the restart.
+		// Record the outcome. An in-place install is live already, so the row can be settled with
+		// the new version. A file deployment is on disk but not loaded, which the marker records.
 		if (deployedBundles.isEmpty()) {
 			handleInstallationSuccess(metadata);
+			if (!partiallyWired.isEmpty())
+				log.warning("Extension " + metadata.getId() + " is running, but these bundles have "
+						+ "dependents that keep their previous wiring until a restart: " + partiallyWired);
 		} else {
 			handleInstallationDeployed(metadata, deployedBundles);
 		}
-		return new InstallResult(deployedBundles);
+		return new InstallResult(deployedBundles, partiallyWired);
 	}
 
 	/**

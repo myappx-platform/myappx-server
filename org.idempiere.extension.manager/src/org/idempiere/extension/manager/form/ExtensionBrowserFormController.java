@@ -355,7 +355,10 @@ public class ExtensionBrowserFormController implements IFormController {
 	}
 
 	/**
-	 * Whether a revision of this extension is parked for the next restart.
+	 * Whether a deployed revision is on disk but not loaded by the running process.
+	 * <p>
+	 * Driven by the pending-restart marker, which is written only by the file deployment path. An
+	 * in-place install or update runs immediately and writes no marker, so it never shows here.
 	 * @param extension extension shown in the details area
 	 * @return true when the operator still has to restart
 	 */
@@ -835,7 +838,8 @@ public class ExtensionBrowserFormController implements IFormController {
 							updateButtons(selectedExtension);
 						}
 						loadInstalledExtensions();
-						// A blocked update is not a failure: the new revision waits for a restart.
+						// A file deployment is not a failure: the revision is on disk and a restart
+						// loads it. An in-place install runs immediately, so it is plain info.
 						if (isStaged(pi.getSummary())) {
 							showNotification(pi.getSummary(), "warning");
 						} else {
