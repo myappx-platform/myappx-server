@@ -418,7 +418,7 @@ public class ExtensionBrowserFormController implements IFormController {
 		}
 		sb.append("<div><label>%s</label><span>".formatted(Msg.getMsg(Env.getCtx(), "Updated"))).append(AEnv.sanitize(lastUpdated)).append("</span></div>");
 		if (isStagedFor(extension)) {
-			sb.append("<div><label>Pending</label><span>Restart the server to apply this update</span></div>");
+			sb.append("<div><label>Pending</label><span>Deployed to plugins/ - restart the server to load it</span></div>");
 		}
 		sb.append("</section>");
 
@@ -855,11 +855,13 @@ public class ExtensionBrowserFormController implements IFormController {
 	}
 
 	/**
-	 * Whether a process summary reports a staged update rather than a completed install.
+	 * Whether a process summary reports a deployment that awaits a restart rather than a completed
+	 * in-place install.
 	 * @param summary process summary text
 	 * @return true when the message says a restart is needed
 	 */
 	private boolean isStaged(String summary) {
+		// InstallExtension returns "Deployed ... to plugins/. Restart the server to load it."
 		return summary != null && summary.contains("Restart the server");
 	}
 

@@ -117,12 +117,11 @@ public class InstallExtension extends SvrProcess {
 			throw e;
 		}
 
-		if (result.isStaged()) {
-			// The running revision is untouched; the new one starts with the server. Report it as a
-			// pending restart instead of an error, because nothing failed. The row is already
-			// Installing and is settled by reconcileStagedInstalls once the new revision runs.
-			return "Update staged for " + String.join(", ", result.getStagedBundles())
-					+ ". Restart the server to apply it.";
+		if (result.isPendingRestart()) {
+			// The bundle was written to plugins/ and registered in bundles.info, so the deployment
+			// itself succeeded. Only loading it needs a restart, and that is not an error.
+			return "Deployed " + String.join(", ", result.getDeployedBundles())
+					+ " to plugins/. Restart the server to load it.";
 		}
 
 		// installExtension already recorded success (version + Installed); nothing to add here.

@@ -75,41 +75,40 @@ public final class StagedBundleStarter {
 
 	private static void run(BundleContext context) {
 		try {
-			waitForStartLevel(context);
+			if (!waitForStartLevel(context)) {
+				// A framework that never settles is not a state to make changes in. The staged
+				// files stay on disk and the next start retries.
+				log.warning("Framework start level did not settle; staged bundles were NOT deployed, "
+						+ "they will be retried on the next start");
+				return;
+			}
 			new ExtensionBrowserService().applyStagedBundles();
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			log.log(Level.WARNING, "Staged extension apply interrupted", e);
+			log.log(Level.WARNING, "Staged bundle deployment interrupted", e);
 		} catch (Exception e) {
 			// Never fail a start over a parked revision; the next start tries again.
-			log.log(Level.SEVERE, "Staged extension apply failed", e);
+			log.log(Level.SEVERE, "Staged bundle deployment failed", e);
 		}
-		// No startup closure analysis on purpose. Measured at this point the closure under-reports:
-		// for a web bundle the WAB has not been deployed yet, so Jetty's DeploymentManager has not
-		// wired it to ui.zk / zk / org.adempiere.server and the closure came back as size=1 while
-		// the real one at update time was size=119. Reporting that number invited exactly the wrong
-		// conclusion - enabling a hot update that stopped the whole application. The closure is now
-		// measured only where it matters: immediately before an update, in refreshBlockers.
 	}
 
 	/**
 	 * Wait until the framework reached its configured start level.
 	 * <p>
-	 * The timing matters and is deliberate: this is the earliest point at which bundles have
-	 * finished activating, not a point at which the application is ready to serve. The apply must
-	 * happen before Jetty starts accepting requests, because a refresh of a web bundle forces
-	 * {@code DeploymentManager} to redeploy it - harmless while nothing is connected, an outage
-	 * once users are. Waiting for "server ready" instead would move the apply to exactly the wrong
-	 * side of that line.
+	 * Started bundles have finished activating by then, so the {@code plugins/} directory and
+	 * {@code bundles.info} can be written without racing anything. The deployed revision is not
+	 * loaded until the next start regardless, so this is about a clean filesystem state, not about
+	 * beating Jetty.
 	 * @param context bundle context used to reach the framework
+	 * @return true when the start level settled, false on timeout
 	 * @throws InterruptedException when interrupted while waiting
 	 */
-	private static void waitForStartLevel(BundleContext context) throws InterruptedException {
+	private static boolean waitForStartLevel(BundleContext context) throws InterruptedException {
 		Bundle systemBundle = context.getBundle(0);
 		FrameworkWiring wiring = systemBundle == null ? null : systemBundle.adapt(FrameworkWiring.class);
 		if (wiring == null) {
-			log.fine("FrameworkWiring unavailable; applying staged extensions without a start level wait");
-			return;
+			log.fine("FrameworkWiring unavailable; deploying staged bundles without a start level wait");
+			return true;
 		}
 		java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
 		FrameworkListener listener = event -> {
@@ -121,9 +120,9 @@ public final class StagedBundleStarter {
 			if (latch.await(5, java.util.concurrent.TimeUnit.MINUTES)) {
 				// Let the bundles the framework just activated finish their own start work.
 				Thread.sleep(1000L);
-			} else {
-				log.warning("Framework start level did not settle in 5 minutes; applying staged extensions anyway");
+				return true;
 			}
+			return false;
 		} finally {
 			context.removeFrameworkListener(listener);
 		}

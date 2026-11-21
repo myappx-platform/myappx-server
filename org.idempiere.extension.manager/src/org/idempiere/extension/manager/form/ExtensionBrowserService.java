@@ -47,8 +47,6 @@ import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.adempiere.base.Core;
 import org.adempiere.base.markdown.IMarkdownRenderer;
@@ -72,7 +70,6 @@ import org.compiere.util.Msg;
 import org.idempiere.extension.manager.ExtensionManagerActivator;
 import org.idempiere.extension.manager.event.PackageImpDelegate;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.FrameworkEvent;
 import org.osgi.framework.wiring.FrameworkWiring;
 import org.osgi.framework.Version;
 import org.osgi.framework.VersionRange;
@@ -262,66 +259,10 @@ public class ExtensionBrowserService {
 	}
 
 	/**
-	 * Wait until a package refresh finishes. A singleton stays selected until this returns.
-	 * @param bundles bundles to refresh; empty does nothing
-	 * @param symbolicName used in timeout and error text
-	 * @throws Exception refresh timed out or the framework reported an error
+	 * Bundles named by symbolic name.
+	 * @param symbolicName bundle to look up
+	 * @return live bundles with that name, never null
 	 */
-	private void refreshBundlesAndWait(Collection<Bundle> bundles, String symbolicName) throws Exception {
-		refreshBundlesAndWait(bundles, symbolicName, false);
-	}
-
-	/**
-	 * Refresh bundles and wait for completion.
-	 * @param bundles bundles to refresh; empty does nothing
-	 * @param symbolicName used in timeout and error text
-	 * @param atStartup true when called during framework start, where stopping a server bundle is
-	 *        harmless because nothing is serving yet. False for an in-session update, where the
-	 *        same refresh would take the application down.
-	 * @throws Exception refresh timed out, was refused, or the framework reported an error
-	 */
-	private void refreshBundlesAndWait(Collection<Bundle> bundles, String symbolicName, boolean atStartup)
-			throws Exception {
-		if (bundles == null || bundles.isEmpty())
-			return;
-		if (ExtensionManagerActivator.context == null) {
-			throw new AdempiereException(Msg.getMsg(Env.getCtx(), "BundleContextNotFound"));
-		}
-		FrameworkWiring wiring = ExtensionManagerActivator.context.getBundle(0).adapt(FrameworkWiring.class);
-		if (wiring == null) {
-			throw new AdempiereException("FrameworkWiring is not available");
-		}
-		// Last line of defence for an in-session update. refreshBundles always expands the seed to
-		// its dependents, so a caller's own check can be defeated by a manifest it did not account
-		// for - which is how a WAB refresh once took the whole application down. At startup the
-		// same expansion is exactly what is wanted, so the check is skipped there.
-		if (atStartup) {
-			if (log.isLoggable(Level.INFO)) {
-				Collection<Bundle> closure = wiring.getDependencyClosure(bundles);
-				log.info("STARTUP-REFRESH " + symbolicName + " closure=" + (closure == null ? 0 : closure.size())
-						+ " (allowed: nothing is serving yet)");
-			}
-		} else {
-			assertClosureIsRefreshable(wiring, bundles, symbolicName);
-		}
-		CountDownLatch latch = new CountDownLatch(1);
-		FrameworkEvent[] outcome = new FrameworkEvent[1];
-		wiring.refreshBundles(bundles, event -> {
-			outcome[0] = event;
-			latch.countDown();
-		});
-		if (!latch.await(60, TimeUnit.SECONDS)) {
-			throw new AdempiereException("Timed out refreshing bundle " + symbolicName);
-		}
-		FrameworkEvent event = outcome[0];
-		if (event != null && event.getType() == FrameworkEvent.ERROR) {
-			Throwable cause = event.getThrowable();
-			if (cause == null)
-				throw new AdempiereException("Failed to refresh bundle " + symbolicName);
-			throw new AdempiereException("Failed to refresh bundle " + symbolicName + ": " + cause.getMessage(), cause);
-		}
-	}
-
 	private List<Bundle> bundlesNamed(String symbolicName) {
 		List<Bundle> found = new ArrayList<>();
 		if (ExtensionManagerActivator.context == null)
@@ -333,18 +274,17 @@ public class ExtensionBrowserService {
 		return found;
 	}
 
-	private List<Bundle> removalPendingNamed(String symbolicName) {
-		List<Bundle> found = new ArrayList<>();
-		if (ExtensionManagerActivator.context == null)
-			return found;
-		FrameworkWiring wiring = ExtensionManagerActivator.context.getBundle(0).adapt(FrameworkWiring.class);
-		if (wiring == null)
-			return found;
-		for (Bundle bundle : wiring.getRemovalPendingBundles()) {
-			if (symbolicName.equals(bundle.getSymbolicName()))
-				found.add(bundle);
+	/**
+	 * The currently running instance of a bundle, if any.
+	 * @param symbolicName bundle to look up
+	 * @return a live bundle, or null when none is installed
+	 */
+	private Bundle liveBundleNamed(String symbolicName) {
+		for (Bundle bundle : bundlesNamed(symbolicName)) {
+			if (bundle.getState() != Bundle.UNINSTALLED)
+				return bundle;
 		}
-		return found;
+		return null;
 	}
 
 	/**
@@ -365,45 +305,26 @@ public class ExtensionBrowserService {
 		return null;
 	}
 
-	private Bundle preferLiveBundle(List<Bundle> live) {
-		Bundle resolved = null;
-		Bundle installed = null;
-		for (Bundle bundle : live) {
-			int state = bundle.getState();
-			if (state == Bundle.ACTIVE || state == Bundle.STARTING)
-				return bundle;
-			if (resolved == null && state == Bundle.RESOLVED)
-				resolved = bundle;
-			else if (installed == null && state == Bundle.INSTALLED)
-				installed = bundle;
-		}
-		if (resolved != null)
-			return resolved;
-		if (installed != null)
-			return installed;
-		return live.get(0);
-	}
-
 	/**
 	 * Result of installing one bundle.
 	 * <p>
 	 * {@code created} is true only when this attempt is the one that put the bundle there, so a
-	 * rollback may uninstall it. A bundle that was already installed belongs to the operator and
-	 * must survive a failed install untouched - uninstalling it takes a working extension down.
+	 * rollback may remove it. A bundle that was already installed belongs to the operator and must
+	 * survive a failed install untouched.
 	 * <p>
-	 * {@code staged} means the new revision was downloaded but not applied because applying it
-	 * needs a framework refresh that would restart a server bundle. The jar is parked on disk and
-	 * applied on the next start.
+	 * {@code deployed} means the new revision was written to {@code plugins/} and registered in
+	 * {@code bundles.info}. It takes effect at the next server start; nothing in the running
+	 * framework was touched.
 	 */
 	public static final class BundleInstallResult {
 		private final Bundle bundle;
 		private final boolean created;
-		private final boolean staged;
+		private final boolean deployed;
 
-		BundleInstallResult(Bundle bundle, boolean created, boolean staged) {
+		BundleInstallResult(Bundle bundle, boolean created, boolean deployed) {
 			this.bundle = bundle;
 			this.created = created;
-			this.staged = staged;
+			this.deployed = deployed;
 		}
 
 		public Bundle getBundle() {
@@ -414,8 +335,8 @@ public class ExtensionBrowserService {
 			return created;
 		}
 
-		public boolean isStaged() {
-			return staged;
+		public boolean isDeployed() {
+			return deployed;
 		}
 	}
 
@@ -423,105 +344,227 @@ public class ExtensionBrowserService {
 	 * Outcome of installing a whole extension.
 	 */
 	public static final class InstallResult {
-		private final List<String> stagedBundles;
+		private final List<String> deployedBundles;
 
-		InstallResult(List<String> stagedBundles) {
-			this.stagedBundles = stagedBundles;
+		InstallResult(List<String> deployedBundles) {
+			this.deployedBundles = deployedBundles;
 		}
 
 		/**
-		 * @return symbolic names whose new revision only takes effect after a restart; empty when
-		 *         everything was applied immediately
+		 * @return symbolic names that were written to disk and need a restart to take effect
 		 */
-		public List<String> getStagedBundles() {
-			return stagedBundles;
+		public List<String> getDeployedBundles() {
+			return deployedBundles;
 		}
 
-		public boolean isStaged() {
-			return !stagedBundles.isEmpty();
+		public boolean isPendingRestart() {
+			return !deployedBundles.isEmpty();
 		}
 	}
 
 	/**
-	 * Update the current bundle in place, or install one new bundle after pending removals are gone.
-	 * A second install while the old singleton revision is still selected cannot resolve.
+	 * Write a bundle to {@code plugins/} in directory form and register it in {@code bundles.info}.
+	 * <p>
+	 * This replaces the previous in-place {@code Bundle.update} plus {@code refreshBundles} path.
+	 * That path cannot be used here: refreshing a web bundle expands to every bundle wired to it
+	 * through Jetty's {@code DeploymentManager}, measured at 119 bundles including
+	 * {@code org.adempiere.ui.zk} and {@code org.adempiere.server}. Doing so tears down the
+	 * deployed web contexts and the application becomes unreachable.
+	 * <p>
+	 * Deploying on disk instead has no runtime effect at all: the running revision keeps serving,
+	 * and the new one is picked up by the next start. Directory form is what the bundle asks for
+	 * ({@code Eclipse-BundleShape: dir}) and matches how
+	 * {@code org.idempiere.myappx.extension.repository} is already deployed.
+	 * @param extensionId extension the bundle belongs to, recorded in the staged marker
+	 * @param symbolicName bundle to deploy
+	 * @param jarFile downloaded bundle
+	 * @return what was deployed, or a result flagged not-deployed when nothing was written
+	 * @throws Exception when the jar cannot be read or written
 	 */
-	private BundleInstallResult replaceOrInstallBundle(String metadataExtensionId, String symbolicName, String downloadUrl, File jarFile) throws Exception {
-		if (ExtensionManagerActivator.context == null) {
-			throw new AdempiereException(Msg.getMsg(Env.getCtx(), "BundleContextNotFound"));
-		}
-		List<Bundle> pending = removalPendingNamed(symbolicName);
-		refreshBundlesAndWait(pending, symbolicName);
+	private BundleInstallResult deployToPlugins(String extensionId, String symbolicName, File jarFile) throws Exception {
+		File installRoot = bundleInstallRoot();
+		if (installRoot == null)
+			throw new AdempiereException("Cannot locate the server install directory");
 
-		List<Bundle> live = new ArrayList<>();
-		for (Bundle bundle : bundlesNamed(symbolicName)) {
-			if (bundle.getState() != Bundle.UNINSTALLED)
-				live.add(bundle);
+		String version = bundleVersionFromJar(jarFile);
+		if (version == null || version.isBlank())
+			throw new AdempiereException("Bundle " + symbolicName + " has no Bundle-Version; refusing to deploy");
+		String dirName = symbolicName + "_" + version;
+		File pluginsDir = new File(installRoot, "plugins");
+		File targetDir = new File(pluginsDir, dirName);
+
+		// Evidence for a future in-place path; must run while the old revision is still live.
+		diagnoseBeforeDeploy(liveBundleNamed(symbolicName), symbolicName);
+
+		if (!pluginsDir.exists() && !pluginsDir.mkdirs())
+			throw new AdempiereException("Cannot create " + pluginsDir);
+
+		// A half-written directory would make the bundle unresolvable at the next start, so it is
+		// extracted beside the final name and moved into place only once complete.
+		File tempDir = new File(pluginsDir, dirName + ".tmp");
+		deleteRecursively(tempDir);
+		extractJar(jarFile, tempDir);
+		deleteRecursively(targetDir);
+		if (!tempDir.renameTo(targetDir)) {
+			deleteRecursively(tempDir);
+			throw new AdempiereException("Cannot move " + tempDir + " to " + targetDir);
 		}
-		if (live.isEmpty()) {
-			if (!removalPendingNamed(symbolicName).isEmpty()) {
-				throw new AdempiereException("Bundle " + symbolicName + " is still selected after refresh");
+
+		removeOtherVersions(pluginsDir, symbolicName, dirName);
+		updateBundlesInfo(installRoot, symbolicName, version, "plugins/" + dirName + "/");
+
+		// Written last: the marker now means "on disk but not loaded by this process", which is what
+		// the UI and reconcileStagedInstalls read. Any failure above leaves no marker behind, so a
+		// partial deploy is never reported as pending.
+		writePendingMarker(extensionId, symbolicName, version, jarFile);
+
+		log.warning("DEPLOYED " + symbolicName + " " + version + " to " + targetDir
+				+ " (takes effect at the next server start)");
+		return new BundleInstallResult(null, false, true);
+	}
+
+	/**
+	 * Extract a bundle jar into a directory.
+	 * @param jarFile source jar
+	 * @param targetDir destination, created if absent
+	 * @throws Exception when an entry cannot be written
+	 */
+	private void extractJar(File jarFile, File targetDir) throws Exception {
+		if (!targetDir.exists() && !targetDir.mkdirs())
+			throw new AdempiereException("Cannot create " + targetDir);
+		try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jarFile)) {
+			java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
+			while (entries.hasMoreElements()) {
+				java.util.zip.ZipEntry entry = entries.nextElement();
+				File out = new File(targetDir, entry.getName());
+				// Zip entries must not escape the target directory.
+				if (!out.getCanonicalPath().startsWith(targetDir.getCanonicalPath() + File.separator))
+					throw new AdempiereException("Refusing entry outside bundle directory: " + entry.getName());
+				if (entry.isDirectory()) {
+					if (!out.exists() && !out.mkdirs())
+						throw new AdempiereException("Cannot create " + out);
+					continue;
+				}
+				File parent = out.getParentFile();
+				if (parent != null && !parent.exists() && !parent.mkdirs())
+					throw new AdempiereException("Cannot create " + parent);
+				try (java.io.InputStream in = zip.getInputStream(entry)) {
+					java.nio.file.Files.copy(in, out.toPath(),
+							java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+				}
 			}
-			try (java.io.FileInputStream fis = new java.io.FileInputStream(jarFile)) {
-				return new BundleInstallResult(ExtensionManagerActivator.context.installBundle(downloadUrl, fis), true, false);
+		}
+	}
+
+	/**
+	 * Remove other deployed versions of the same bundle.
+	 * <p>
+	 * Two directories for one {@code singleton:=true} bundle cannot both resolve, and the start
+	 * would then depend on directory ordering. Only directories whose name is
+	 * {@code <symbolicName>_} followed by a version are touched, so similarly named bundles are
+	 * left alone.
+	 * @param pluginsDir plugins directory
+	 * @param symbolicName bundle to keep only one version of
+	 * @param keepDirName directory name of the version just deployed
+	 */
+	private void removeOtherVersions(File pluginsDir, String symbolicName, String keepDirName) {
+		File[] candidates = pluginsDir.listFiles();
+		if (candidates == null)
+			return;
+		String prefix = symbolicName + "_";
+		for (File candidate : candidates) {
+			String name = candidate.getName();
+			if (name.equals(keepDirName) || !name.startsWith(prefix))
+				continue;
+			// Only strip versions, never a longer symbolic name that happens to start with prefix.
+			String remainder = name.substring(prefix.length());
+			if (!remainder.matches("\\d[\\w.\\-]*"))
+				continue;
+			if (name.endsWith(".bak") || name.endsWith(".tmp"))
+				continue;
+			log.warning("Removing superseded deployment " + candidate.getName());
+			deleteRecursively(candidate);
+		}
+	}
+
+	/**
+	 * Recursively delete a file or directory.
+	 * @param file target, ignored when absent
+	 */
+	private void deleteRecursively(File file) {
+		if (file == null || !file.exists())
+			return;
+		if (file.isDirectory()) {
+			File[] children = file.listFiles();
+			if (children != null) {
+				for (File child : children)
+					deleteRecursively(child);
 			}
 		}
+		if (!file.delete())
+			log.warning("Could not delete " + file);
+	}
 
-		Bundle target = preferLiveBundle(live);
-		List<Bundle> extras = new ArrayList<>();
-		for (Bundle bundle : live) {
-			if (bundle.getBundleId() != target.getBundleId())
-				extras.add(bundle);
-		}
-		if (!extras.isEmpty()) {
-			// Duplicate revisions of a singleton cannot both resolve, and dropping the extras needs
-			// a framework refresh that would restart the server. Park the jar instead of failing:
-			// the next start resolves to the one revision that is left.
-			stageBundle(metadataExtensionId, symbolicName, jarFile);
-			log.warning("Staged " + symbolicName + " for the next start; " + extras.size()
-					+ " additional revision(s) must be retired first");
-			return new BundleInstallResult(target, false, true);
-		}
+	/**
+	 * Replace the {@code bundles.info} entry for a bundle.
+	 * <p>
+	 * {@code simpleconfigurator} treats this file as the sole list of bundles, so a deployed
+	 * directory is invisible until its line is here. The file is rewritten atomically because a
+	 * truncated {@code bundles.info} would leave the server unable to start.
+	 * @param installRoot server install directory
+	 * @param symbolicName bundle to register
+	 * @param version deployed version
+	 * @param relativePath path relative to the install root, directory form with a trailing slash
+	 * @throws Exception when the file cannot be rewritten
+	 */
+	private void updateBundlesInfo(File installRoot, String symbolicName, String version, String relativePath)
+			throws Exception {
+		File info = new File(installRoot,
+				"configuration/org.eclipse.equinox.simpleconfigurator/bundles.info");
+		if (!info.isFile())
+			throw new AdempiereException("bundles.info not found at " + info);
 
-		// Bundle.update(InputStream) replaces this bundle's current revision, and the previous
-		// revision stays selected until a refresh retires it - so a refresh is unavoidable. But a
-		// refresh also restarts every bundle that depends on this one. Check the blast radius
-		// BEFORE touching the bundle.
-		List<String> blockers = refreshBlockers(target, symbolicName);
-		if (!blockers.isEmpty()) {
-			// Touching the bundle at all would stop it: Bundle.update() stops an active bundle, and
-			// the refresh that makes the new revision current would also restart the server. So the
-			// running revision is left completely alone and the jar is parked. It is applied during
-			// the next start, when a restart is expected anyway.
-			stageBundle(metadataExtensionId, symbolicName, jarFile);
-			log.warning("Staged " + symbolicName + " for the next start; refreshing it would restart "
-					+ String.join(", ", blockers));
-			return new BundleInstallResult(target, false, true);
-		}
+		List<String> lines = new ArrayList<>(
+				java.nio.file.Files.readAllLines(info.toPath(), StandardCharsets.UTF_8));
+		StringBuilder out = new StringBuilder();
+		boolean hadBom = !lines.isEmpty() && lines.get(0).startsWith("\uFEFF");
+		if (hadBom)
+			lines.set(0, lines.get(0).substring(1));
 
-		// Bundle.update() stops an active bundle and the following refresh retires the old
-		// revision. Both are unavoidable, so the bundle is brought back up explicitly afterwards:
-		// a refresh restores ACTIVE state only for bundles it could re-resolve, and relying on
-		// that leaves the extension silently dead when it cannot.
-		int stateBefore = target.getState();
-		boolean wasActive = stateBefore == Bundle.ACTIVE || stateBefore == Bundle.STARTING;
-		if (wasActive)
-			target.stop();
-		try (java.io.FileInputStream fis = new java.io.FileInputStream(jarFile)) {
-			target.update(fis);
+		for (String line : lines) {
+			if (line.trim().isEmpty() || line.startsWith("#")) {
+				out.append(line).append('\n');
+				continue;
+			}
+			// Format: symbolicName,version,path,startLevel,autoStart. Compare only the first field
+			// so "org.foo" never matches "org.foo.bar".
+			int comma = line.indexOf(',');
+			String existing = comma > 0 ? line.substring(0, comma).trim() : line.trim();
+			if (existing.equals(symbolicName)) {
+				log.fine("Replacing bundles.info entry for " + symbolicName);
+				continue;
+			}
+			out.append(line).append('\n');
 		}
-		refreshBundlesAndWait(Collections.singletonList(target), symbolicName);
-		for (Bundle bundle : bundlesNamed(symbolicName)) {
-			if (bundle.getBundleId() != target.getBundleId() && bundle.getState() != Bundle.UNINSTALLED)
-				throw new AdempiereException("Bundle " + symbolicName + " is still selected after refresh");
+		out.append(symbolicName).append(',').append(version).append(',')
+				.append(relativePath).append(",4,true").append('\n');
+
+		java.nio.file.Path target = info.toPath();
+		java.nio.file.Path temp = java.nio.file.Files.createTempFile(info.getParentFile().toPath(),
+				"bundles.info", ".tmp");
+		try {
+			java.nio.file.Files.writeString(temp, out.toString(), StandardCharsets.UTF_8);
+			try {
+				java.nio.file.Files.move(temp, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+						java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+			} catch (java.nio.file.AtomicMoveNotSupportedException e) {
+				// Same filesystem in practice, but fall back rather than fail the deploy.
+				java.nio.file.Files.move(temp, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			}
+		} finally {
+			java.nio.file.Files.deleteIfExists(temp);
 		}
-		if (wasActive && target.getState() != Bundle.ACTIVE) {
-			// Restart the new revision, which is what makes the update take effect in this session.
-			target.start();
-			log.warning(symbolicName + " refreshed and restarted at " + target.getVersion()
-					+ " (state=" + stateName(target.getState()) + ")");
-		}
-		return new BundleInstallResult(target, false, false);
+		log.warning("bundles.info updated: " + symbolicName + " " + version + " -> " + relativePath);
 	}
 
 	/**
@@ -548,81 +591,19 @@ public class ExtensionBrowserService {
 			"com.hazelcast"));
 
 	/**
-	 * Extensions whose refresh was measured to touch nothing but themselves.
+	 * Log the refresh cost of a bundle, purely as evidence.
 	 * <p>
-	 * Deliberately empty, and this must not be filled in on the strength of a test where the
-	 * bundle was placed in {@code plugins/}. Such a bundle resolves its {@code Require-Bundle}
-	 * headers without the web container, and its measured closure came out as {@code size=1}.
-	 * <p>
-	 * A bundle installed through this form is a different animal: it is a WAB, and Jetty's
-	 * {@code DeploymentManager} plus the OSGi HTTP service wire it to {@code ui.zk}, {@code zk},
-	 * {@code org.adempiere.server} and the rest. Measured on a real form-installed extension the
-	 * closure was {@code size=119} with 7 forbidden bundles, so an in-place refresh stops the
-	 * whole application. That is not a hot update, and allowing it here caused exactly that outage.
+	 * Nothing in the deployment model refreshes, so this gates no decision. It is invoked before
+	 * every deploy because the closure and dynamic-import counts are the only data that would
+	 * justify reopening an in-place update path, and they can only be observed while the bundle is
+	 * live.
+	 * @param target bundle being deployed
+	 * @param symbolicName extension being deployed
 	 */
-	private static final java.util.Set<String> REFRESH_SAFE_EXTENSIONS = java.util.Collections.emptySet();
-
-	/**
-	 * Verify the framework's own refresh closure before any bundle is stopped.
-	 * <p>
-	 * {@code refreshBundles} always expands the seed with everything that depends on it, so a
-	 * caller's earlier check can be defeated by wiring it did not model - a WAB is wired through
-	 * {@code DeploymentManager} in a way that is invisible to a manifest-only review. Asking the
-	 * framework here is the only check that cannot be bypassed.
-	 * @param wiring framework wiring used for the refresh
-	 * @param bundles seed bundles about to be refreshed
-	 * @param symbolicName extension being updated, used in the error
-	 * @throws AdempiereException when the closure contains a bundle that cannot restart
-	 */
-	private void assertClosureIsRefreshable(FrameworkWiring wiring, Collection<Bundle> bundles, String symbolicName)
-			throws AdempiereException {
-		Collection<Bundle> closure = wiring.getDependencyClosure(bundles);
-		if (closure == null || closure.isEmpty())
+	private void diagnoseBeforeDeploy(Bundle target, String symbolicName) {
+		if (target == null)
 			return;
-		List<String> blockers = new ArrayList<>();
-		for (Bundle dependent : closure) {
-			String name = dependent.getSymbolicName();
-			if (name != null && isRefreshForbidden(name) && !name.equals(symbolicName))
-				blockers.add(name);
-		}
-		if (!blockers.isEmpty()) {
-			// Refused before anything was stopped, so the running revision keeps serving.
-			log.warning("REFUSED refresh of " + symbolicName + ": closure of " + closure.size()
-					+ " would restart " + String.join(", ", blockers));
-			throw new AdempiereException("Refusing to refresh " + symbolicName + ": it would also restart "
-					+ String.join(", ", blockers)
-					+ ". Update it at the next restart instead.");
-		}
-	}
-
-	/**
-	 * Bundles whose refresh would take the server down.
-	 * @param target bundle about to be refreshed
-	 * @param symbolicName extension being updated, skipped in the result
-	 * @return symbolic names of bundles that cannot restart; empty when a refresh is harmless
-	 */
-	private List<String> refreshBlockers(Bundle target, String symbolicName) throws Exception {
-		List<String> blockers = new ArrayList<>();
-		// The diagnostic runs first, for every update attempt including the allowed ones: it is the
-		// evidence that decides whether an extension can be added to REFRESH_SAFE_EXTENSIONS.
 		logRefreshClosure(target, symbolicName);
-		if (ExtensionManagerActivator.context == null)
-			throw new AdempiereException(Msg.getMsg(Env.getCtx(), "BundleContextNotFound"));
-		FrameworkWiring wiring = ExtensionManagerActivator.context.getBundle(0).adapt(FrameworkWiring.class);
-		if (wiring == null)
-			throw new AdempiereException("FrameworkWiring is not available");
-
-		Collection<Bundle> closure = wiring.getDependencyClosure(Collections.singletonList(target));
-		if (closure == null)
-			return blockers;
-		for (Bundle dependent : closure) {
-			String name = dependent.getSymbolicName();
-			if (name == null || name.equals(symbolicName))
-				continue;
-			if (isRefreshForbidden(name))
-				blockers.add(name);
-		}
-		return blockers;
 	}
 
 	/**
@@ -887,98 +868,24 @@ public class ExtensionBrowserService {
 	}
 
 	/**
-	 * Log the refresh cost of every dynamically installed plugin extension.
+	 * Deploy any staged jar left behind by an earlier build.
 	 * <p>
-	 * Runs once per JVM after the framework settles. An operator does not have to open the form or
-	 * attempt an update to learn whether hot update is possible: the closure of each extension is
-	 * written to the log at WARNING, with the wire that produces every forbidden entry.
-	 */
-	public void logRefreshClosuresForInstalledExtensions() {
-		if (ExtensionManagerActivator.context == null)
-			return;
-		try {
-			java.util.Set<String> analysed = new java.util.HashSet<>();
-			List<MExtension> installed = new Query(Env.getCtx(), MExtension.Table_Name,
-					"ExtensionState IN (?,?,?)", null)
-					.setParameters(MExtension.EXTENSIONSTATE_Installed,
-							MExtension.EXTENSIONSTATE_Disabled,
-							MExtension.EXTENSIONSTATE_Installing)
-					.setOnlyActiveRecords(true)
-					.list();
-			for (MExtension extension : installed)
-				analyse(extension.getExtensionId(), extension.getExtensionState(), analysed);
-
-			// Extension rows can be stale: a row in Error still has a bundle that an update would
-			// have to refresh. Analyse every extension bundle no row claimed, so the picture does
-			// not depend on the dictionary being tidy.
-			for (Bundle bundle : ExtensionManagerActivator.context.getBundles()) {
-				String name = bundle.getSymbolicName();
-				if (name == null || analysed.contains(name) || bundle.getState() == Bundle.UNINSTALLED)
-					continue;
-				if (!name.startsWith("org.idempiere.myappx.") && !name.startsWith("com.trekglobal.")
-						&& !name.startsWith("org.idempiere.mcp."))
-					continue;
-				analyse(name, "no-row", analysed);
-			}
-			if (analysed.isEmpty())
-				log.warning("REFRESH-CLOSURE no extension bundles found to analyse");
-		} catch (Exception e) {
-			log.log(Level.WARNING, "REFRESH-CLOSURE analysis failed", e);
-		}
-	}
-
-	/**
-	 * Analyse one bundle and record it as done.
-	 * @param extensionId symbolic name to analyse
-	 * @param rowState extension row state, for the log only
-	 * @param analysed names already handled in this pass
-	 * @return true when the bundle was found and analysed
-	 */
-	private boolean analyse(String extensionId, String rowState, java.util.Set<String> analysed) {
-		if (extensionId == null || !analysed.add(extensionId))
-			return false;
-		Bundle bundle = null;
-		for (Bundle candidate : ExtensionManagerActivator.context.getBundles()) {
-			if (extensionId.equals(candidate.getSymbolicName())
-					&& candidate.getState() != Bundle.UNINSTALLED) {
-				bundle = candidate;
-				break;
-			}
-		}
-		if (bundle == null) {
-			log.warning("REFRESH-CLOSURE " + extensionId + " has no live bundle (row state=" + rowState + ")");
-			return false;
-		}
-		logRefreshClosure(bundle, extensionId);
-		return true;
-	}
-
-	/**
-	 * Apply staged bundle revisions. Call once during framework start.
+	 * Current installs deploy straight to {@code plugins/} - see {@link #deployToPlugins} - so a jar
+	 * in {@code staged-bundles/} can only come from a previous version of this manager that parked
+	 * updates instead of deploying them. This method exists to migrate those, and to retry a deploy
+	 * that failed on a previous start.
 	 * <p>
-	 * A staged revision is a jar this server accepted but could not apply while it was serving
-	 * users. Applying it here is safe for the reason the in-session path is not: at this point the
-	 * application has not begun serving requests, so stopping and refreshing the bundle has no user
-	 * impact.
-	 * <p>
-	 * The staged jar is deleted only after the framework accepted the revision, and the marker is
-	 * kept until the extension row is settled. That way a failed apply is retried on the next start
-	 * instead of silently losing the update, and a successful one can still be attributed to its
-	 * extension.
+	 * Nothing here touches the running framework: the files are extracted to {@code plugins/} and
+	 * registered in {@code bundles.info}, and the next start loads them.
 	 */
 	public void applyStagedBundles() {
 		if (ExtensionManagerActivator.context == null)
 			return;
 		File dir = stagedBundleDir();
 		File[] jars = dir.listFiles((d, name) -> name.endsWith(".jar"));
-		if (jars == null)
-			return;
-		if (jars.length == 0) {
-			// Keep the marker-only state visible: a marker with no jar means an earlier start
-			// applied the revision and the row still has to be settled.
-			List<String> pending = getStagedBundles();
-			if (!pending.isEmpty())
-				log.warning("STAGED-BUNDLES marker present but jar already consumed: " + pending);
+		if (jars == null || jars.length == 0) {
+			// Marker without a jar is the normal steady state after a deploy, so this is not a
+			// warning; say nothing and let reconcileStagedInstalls clear it once the version runs.
 			return;
 		}
 		for (File jar : jars) {
@@ -998,28 +905,29 @@ public class ExtensionBrowserService {
 				continue;
 			}
 			try {
-				if (applyStagedBundle(symbolicName, jar) == null)
+				String extensionId = readMarkerExtensionId(owner);
+				if (deployToPlugins(extensionId, symbolicName, jar) == null)
 					continue;
-				// Delete the jar but keep the marker: the row is still Installing and
-				// reconcileStagedInstalls needs to know which extension this revision belongs to.
+				// The marker stays: it is what reconcileStagedInstalls uses to clear the pending
+				// state once the deployed version is the one running.
 				if (!jar.delete())
-					log.warning("Staged jar " + jar.getName() + " could not be deleted after apply");
+					log.warning("Staged jar " + jar.getName() + " could not be deleted after deploy");
 				clearAttempts(dir, symbolicName);
-				log.warning("Staged update of " + symbolicName + " applied at startup");
+				log.warning("Migrated staged jar " + symbolicName + " into plugins/");
 			} catch (Exception e) {
 				int attempts = recordAttemptFailure(dir, symbolicName);
 				if (attempts >= MAX_STAGED_ATTEMPTS) {
-					// Stop retrying: a revision that failed this often will not apply on its own.
-					// The jar is renamed rather than deleted so the file is still there to inspect.
+					// Stop retrying: a jar that failed this often will not deploy on its own. It is
+					// renamed rather than deleted so the file is still there to inspect.
 					if (jar.renameTo(abandoned))
-						log.log(Level.SEVERE, "Staged update of " + symbolicName + " failed " + attempts
+						log.log(Level.SEVERE, "Staged deploy of " + symbolicName + " failed " + attempts
 								+ " times; abandoned as " + abandoned.getName()
 								+ ". Investigate the cause, then delete the .failed and .extension files to retry.", e);
 					else
-						log.log(Level.SEVERE, "Staged update of " + symbolicName + " failed " + attempts
+						log.log(Level.SEVERE, "Staged deploy of " + symbolicName + " failed " + attempts
 								+ " times and could not be renamed to " + abandoned.getName(), e);
 				} else {
-					log.log(Level.SEVERE, "Staged update of " + symbolicName + " could not be applied (attempt "
+					log.log(Level.SEVERE, "Staged deploy of " + symbolicName + " failed (attempt "
 							+ attempts + " of " + MAX_STAGED_ATTEMPTS + ")", e);
 				}
 			}
@@ -1074,49 +982,11 @@ public class ExtensionBrowserService {
 	}
 
 	/**
-	 * Install or update one staged bundle from its parked jar.
-	 * @param symbolicName bundle to apply
-	 * @param jar staged jar
-	 * @return the install result, or null when the jar holds a different bundle
-	 * @throws Exception when the framework rejects the revision
-	 */
-	private BundleInstallResult applyStagedBundle(String symbolicName, File jar) throws Exception {
-		List<Bundle> live = new ArrayList<>();
-		for (Bundle bundle : bundlesNamed(symbolicName)) {
-			if (bundle.getState() != Bundle.UNINSTALLED)
-				live.add(bundle);
-		}
-		if (live.isEmpty()) {
-			try (java.io.FileInputStream fis = new java.io.FileInputStream(jar)) {
-				// The jar's own file URI is a stable, resolvable location. The framework copies the
-				// content into its own storage, so deleting the staged jar afterwards is safe.
-				Bundle installed = ExtensionManagerActivator.context.installBundle(jar.toURI().toString(), fis);
-				if (installed.getState() != Bundle.ACTIVE)
-					installed.start();
-				return new BundleInstallResult(installed, true, false);
-			}
-		}
-		Bundle target = preferLiveBundle(live);
-		if (target.getState() == Bundle.ACTIVE || target.getState() == Bundle.STARTING)
-			target.stop();
-		try (java.io.FileInputStream fis = new java.io.FileInputStream(jar)) {
-			target.update(fis);
-		}
-		// Startup mode: the bundle that gets refreshed is the extension itself and the closures it
-		// pulls in are being restarted anyway, so the in-session blast-radius check must not apply
-		// here. Applying it was what made a staged update fail on every restart - the check saw the
-		// same core bundles it had refused in-session and threw before anything was applied.
-		refreshBundlesAndWait(Collections.singletonList(target), symbolicName, true);
-		if (target.getState() != Bundle.ACTIVE)
-			target.start();
-		return new BundleInstallResult(target, false, false);
-	}
-
-	/**
-	 * Directory holding jars whose install waits for the next server start.
+	 * Directory holding the pending-restart markers, plus any staged jar from an earlier build.
 	 * <p>
 	 * A sibling of {@code plugins/}, so it is never scanned as a bundle directory and never
-	 * resolved by the running framework.
+	 * resolved by the running framework. Current installs put only a marker here, because the
+	 * bundle itself is extracted into {@code plugins/} immediately.
 	 */
 	private File stagedBundleDir() {
 		// Sibling of plugins/: the running framework never scans it, so nothing is resolved from
@@ -1174,38 +1044,28 @@ public class ExtensionBrowserService {
 	}
 
 	/**
-	 * Park a bundle revision for the next start.
+	 * Record that a deployed revision is on disk but not yet loaded by this process.
 	 * <p>
-	 * The running revision is left alone on purpose. {@code Bundle.update()} stops an active
-	 * bundle and the following refresh restarts the server, so applying a blocked update in place
-	 * is exactly what must not happen. Copying the jar to a directory the server owns keeps this
-	 * reversible: nothing in the running framework changes, and the file is applied - or deleted -
-	 * during the next start.
-	 * @param extensionId extension the bundle belongs to, recorded next to the jar
-	 * @param symbolicName bundle being staged, used in the file name
-	 * @param jarFile downloaded revision
+	 * Only a marker is written: the bundle itself is already extracted into {@code plugins/} and
+	 * registered in {@code bundles.info} by {@link #deployToPlugins}. The marker is what the UI and
+	 * {@link #reconcileStagedInstalls} read to say "restart pending", and it is removed once the
+	 * running bundle matches the recorded target version.
+	 * @param extensionId extension the bundle belongs to
+	 * @param symbolicName bundle that was deployed
+	 * @param version version that is now on disk
+	 * @param jarFile the deployed jar, read for its version header
 	 */
-	private void stageBundle(String extensionId, String symbolicName, File jarFile) throws Exception {
+	private void writePendingMarker(String extensionId, String symbolicName, String version, File jarFile) throws Exception {
+		if (extensionId == null)
+			return;
 		File dir = stagedBundleDir();
 		if (!dir.exists() && !dir.mkdirs())
 			throw new AdempiereException("Cannot create " + dir);
-		File target = new File(dir, symbolicName + ".jar");
 		File owner = new File(dir, symbolicName + ".extension");
-		// The marker is written first. A jar without a marker cannot be attributed to an extension,
-		// and the startup apply must not install something it cannot account for.
-		if (extensionId != null)
-			java.nio.file.Files.writeString(owner.toPath(),
-					buildMarker(extensionId, symbolicName, jarFile), StandardCharsets.UTF_8);
-		try {
-			java.nio.file.Files.copy(jarFile.toPath(), target.toPath(),
-					java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-		} catch (Exception e) {
-			if (owner.exists())
-				owner.delete();
-			throw e;
-		}
+		java.nio.file.Files.writeString(owner.toPath(),
+				buildMarker(extensionId, symbolicName, version), StandardCharsets.UTF_8);
 		if (log.isLoggable(Level.INFO))
-			log.info("Staged " + symbolicName + " for the next start: " + target);
+			log.info("Pending-restart marker written for " + symbolicName + " " + version);
 	}
 
 	/**
@@ -1215,17 +1075,16 @@ public class ExtensionBrowserService {
 	 * which version was replaced, which one was meant to take over, and when it was staged. The
 	 * plain id answered none of them.
 	 * @param extensionId extension the bundle belongs to
-	 * @param symbolicName bundle being staged
-	 * @param jarFile downloaded revision
-	 * @return single line JSON, escaped for the values that can contain quotes
+	 * @param symbolicName bundle that was deployed
+	 * @param version version now on disk
+	 * @return single line JSON
 	 */
-	private String buildMarker(String extensionId, String symbolicName, File jarFile) {
+	private String buildMarker(String extensionId, String symbolicName, String version) {
 		String from = currentBundleVersion(symbolicName);
-		String to = bundleVersionFromJar(jarFile);
 		return "{\"extensionId\":\"" + extensionId + "\""
 				+ ",\"bundle\":\"" + symbolicName + "\""
 				+ ",\"from\":\"" + (from == null ? "" : from) + "\""
-				+ ",\"to\":\"" + (to == null ? "" : to) + "\""
+				+ ",\"to\":\"" + (version == null ? "" : version) + "\""
 				+ ",\"stagedAt\":\"" + java.time.LocalDateTime.now().withNano(0) + "\"}";
 	}
 
@@ -1342,42 +1201,39 @@ public class ExtensionBrowserService {
 	}
 
 	/**
-	 * Finish staged updates on the first form open after a restart.
+	 * Settle deployed revisions whose marker is still on disk.
 	 * <p>
-	 * A staged update leaves the row as {@code Installing} while the old revision keeps serving.
-	 * Once the new revision is the one running, the row is promoted to {@code Installed}. The
-	 * decision is taken from the running bundles, not from the staged file, because the startup
-	 * apply deletes that file as soon as it succeeds - keying off it here would leave the row
-	 * {@code Installing} and let the stale-install recovery flag a working extension as Error.
+	 * A deploy writes the new revision to {@code plugins/} and records the row as {@code Installed}
+	 * immediately, because the deployment itself is complete - only loading it needs a restart. The
+	 * marker is what says "the running process has not loaded this yet". Once the running bundle
+	 * matches the marker's target version, the marker has served its purpose and is removed.
+	 * <p>
+	 * Scans {@code Installed} rather than {@code Installing}: the row is already settled at deploy
+	 * time, so keying off {@code Installing} would leave every marker on disk forever.
 	 */
 	public void reconcileStagedInstalls() {
 		if (ExtensionManagerActivator.context == null)
 			return;
-		List<MExtension> pending = new Query(Env.getCtx(), MExtension.Table_Name, "ExtensionState=?", null)
-				.setParameters(MExtension.EXTENSIONSTATE_Installing)
+		List<MExtension> candidates = new Query(Env.getCtx(), MExtension.Table_Name,
+				"ExtensionState IN (?,?)", null)
+				.setParameters(MExtension.EXTENSIONSTATE_Installed, MExtension.EXTENSIONSTATE_Installing)
 				.setOnlyActiveRecords(true)
 				.list();
-		if (pending.isEmpty())
+		if (candidates.isEmpty())
 			return;
-		for (MExtension extension : pending) {
+		for (MExtension extension : candidates) {
 			try {
+				List<String> staged = stagedBundlesOf(extension);
+				if (staged.isEmpty())
+					continue;
 				if (!isDeclaredVersionRunning(extension))
 					continue;
-				List<String> staged = stagedBundlesOf(extension);
-				MExtension loaded = new MExtension(Env.getCtx(), extension.getAD_Extension_ID(), null);
-				String metadata = loaded.getExtensionMetadata();
-				if (metadata != null && !metadata.trim().isEmpty()) {
-					ExtensionMetadata parsed = new ExtensionMetadata(JsonParser.parseString(metadata).getAsJsonObject());
-					if (parsed.hasVersion())
-						loaded.setExtensionVersion(parsed.getVersion());
-				}
-				loaded.setExtensionState(MExtension.EXTENSIONSTATE_Installed);
-				loaded.saveEx();
 				for (String symbolicName : staged)
 					discardStagedBundle(symbolicName);
-				log.info("Staged update of " + loaded.getExtensionId() + " completed: running revision matches the metadata");
+				log.info("Deployed revision of " + extension.getExtensionId()
+						+ " is now running; staged marker cleared");
 			} catch (Exception e) {
-				log.log(Level.WARNING, "Failed to reconcile staged update of " + extension.getExtensionId(), e);
+				log.log(Level.WARNING, "Failed to reconcile deployed revision of " + extension.getExtensionId(), e);
 			}
 		}
 		CacheMgt.get().reset(MExtension.Table_Name);
@@ -2231,11 +2087,10 @@ public class ExtensionBrowserService {
 	 */
 	public InstallResult installExtension(ExtensionMetadata metadata, Callback<String> statusCallback,
 			List<Bundle> createdOut) throws Exception {
-		List<Bundle> installedBundles = new ArrayList<>();
-		List<Bundle> createdBundles = createdOut != null ? createdOut : new ArrayList<>();
-		List<String> stagedBundles = new ArrayList<>();
-				
-		// Download and Install OSGi Bundles
+		List<String> deployedBundles = new ArrayList<>();
+
+		// Download and deploy each bundle to plugins/. Nothing is installed into the running
+		// framework: the revision on disk is picked up by the next server start.
 		for (JsonElement el : metadata.getBundles()) {
 			JsonObject bundleObj = el.getAsJsonObject();
 			if (!bundleObj.has("downloadUrl")) {
@@ -2246,12 +2101,12 @@ public class ExtensionBrowserService {
 			String symbolicName = bundleObj.get("symbolicName").getAsString();
 			String id = metadata.getId();
 			PackageImpDelegate.addExtension(symbolicName, id);
-			
+
 			// convert github blob to raw if needed
 			if (downloadUrl.contains("github.com") && downloadUrl.contains("/blob/")) {
 				downloadUrl = downloadUrl.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/");
 			}
-		
+
 			if (statusCallback != null)
 				statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "DownloadingBundleFrom", new Object[]{bundleObj.get("symbolicName").getAsString(), downloadUrl}));
 
@@ -2272,90 +2127,42 @@ public class ExtensionBrowserService {
 
 				if (statusCallback != null)
 					statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "InstallingExtensionBundle", new Object[]{downloadUrl}));
-				BundleInstallResult result = replaceOrInstallBundle(metadata.getId(), symbolicName, downloadUrl, tempZip);
-				if (result.isStaged()) {
-					stagedBundles.add(symbolicName);
+				BundleInstallResult result = deployToPlugins(id, symbolicName, tempZip);
+				if (result.isDeployed()) {
+					deployedBundles.add(symbolicName);
 					if (statusCallback != null)
 						// Plain text rather than a Msg lookup: this key has no AD_Message row, and a
 						// missing key makes Msg return the key itself, which is what showed up as
 						// "ExtensionBundleStaged" in the process log.
-						statusCallback.onCallback("Staged " + symbolicName
-								+ " for the next restart; the running version is untouched.");
-				} else {
-					installedBundles.add(result.getBundle());
-					if (result.isCreated())
-						createdBundles.add(result.getBundle());
+						statusCallback.onCallback("Deployed " + symbolicName
+								+ " to plugins/; it takes effect at the next server start.");
 				}
 			} finally {
 				tempZip.delete();
 			}
 		}
-		
-		// Start (Activate) Bundles and Check for 2pack		
-		List<String> twoPackBundles = new ArrayList<>();
-		for (Bundle bundle : installedBundles) {
-			Enumeration<URL> entries = bundle.findEntries("META-INF", "2Pack_*.zip", false);
-			if (entries != null && entries.hasMoreElements()) {
-				twoPackBundles.add(bundle.getSymbolicName());
-			}
-			if (statusCallback != null)
-				statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "StartingExtensionBundle", new Object[]{bundle.getSymbolicName()}));
-			// The framework can be shutting down here: a refresh that cascaded into a server bundle
-			// tears the application down while this loop runs, and starting a bundle then fails
-			// inside BaseActivator with a NullPointerException from a null bundle context. Report
-			// that as a failed install instead of an unexplained NPE in the process log.
-			try {
-				bundle.start();
-			} catch (org.osgi.framework.BundleException e) {
-				throw new AdempiereException("Bundle " + bundle.getSymbolicName()
-						+ " was installed but could not be started: " + e.getMessage()
-						+ ". If the server is shutting down, restart it to finish the install.", e);
-			} catch (IllegalStateException e) {
-				throw new AdempiereException("Bundle " + bundle.getSymbolicName()
-						+ " was installed but the framework is no longer available: " + e.getMessage()
-						+ ". Restart the server to finish the install.", e);
-			}
-		}
 
-		if (twoPackBundles.size() > 0) {
-			StringBuilder whereBuilder = new StringBuilder("Name IN (");
-			for (int i = 0; i < twoPackBundles.size(); i++) {
-				whereBuilder.append("?");
-				if (i < twoPackBundles.size() - 1) {
-					whereBuilder.append(",");
-				}
-			}
-			whereBuilder.append(") AND PK_Status = ?");
-			List<Object> params = new ArrayList<>(twoPackBundles);
-			params.add(MPackageImp.PACKAGE_STATUS_INSTALLING);
-			Query query = new Query(Env.getCtx(), MPackageImp.Table_Name, whereBuilder.toString(), null)
-					.setParameters(params.toArray());
-			int count = query.count();
-			if (count > 0) {
-				if (statusCallback != null)
-					statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "ImportingExtensionDataInBackground"));
-			}
-		}
-
-		if (stagedBundles.isEmpty()) {
+		// Record the outcome. The version on disk is already the new one, so the row is settled
+		// here rather than left in Installing - the only thing outstanding is the restart.
+		if (deployedBundles.isEmpty()) {
 			handleInstallationSuccess(metadata);
 		} else {
-			// The running revision is untouched and still serving; only the row changes, so the
-			// operator can see that a restart is outstanding.
-			handleInstallationStaged(metadata, stagedBundles);
+			handleInstallationDeployed(metadata, deployedBundles);
 		}
-		return new InstallResult(stagedBundles);
+		return new InstallResult(deployedBundles);
 	}
 
 	/**
-	 * Record that a newer revision is parked for the next start.
+	 * Record that a newer revision is deployed on disk and awaits a restart.
 	 * <p>
-	 * The installed version stays as it is on purpose: reporting the staged version here would
-	 * make the file look installed while the running server still serves the old one.
-	 * @param extension metadata of the staged revision
-	 * @param stagedBundles symbolic names that are waiting for a restart
+	 * The row is set to {@code Installed} with the new version because the deployment is complete:
+	 * the files and the {@code bundles.info} line are in place, so nothing else can fail. A marker
+	 * records that the running process has not loaded it yet, which is what the UI and
+	 * {@code reconcileStagedInstalls} use to say "restart pending".
+	 * @param extension metadata of the deployed extension
+	 * @param deployedBundles symbolic names that were written to disk
 	 */
-	public void handleInstallationStaged(ExtensionMetadata extension, List<String> stagedBundles) {
+	public void handleInstallationDeployed(ExtensionMetadata extension, List<String> deployedBundles) {
 		String extensionId = extension.getId();
 		if (extensionId == null)
 			return;
@@ -2365,9 +2172,12 @@ public class ExtensionBrowserService {
 		if (mExtension == null)
 			return;
 		mExtension.setExtensionMetadata(extension.toString());
-		mExtension.setExtensionState(MExtension.EXTENSIONSTATE_Installing);
+		if (extension.hasVersion())
+			mExtension.setExtensionVersion(extension.getVersion());
+		mExtension.setExtensionState(MExtension.EXTENSIONSTATE_Installed);
 		mExtension.saveEx();
-		log.warning("Extension " + extensionId + " staged for the next start: " + String.join(", ", stagedBundles));
+		log.warning("Extension " + extensionId + " deployed to plugins/, restart required: "
+				+ String.join(", ", deployedBundles));
 	}
 
 	private byte[] fetchBytes(String url) throws Exception {
