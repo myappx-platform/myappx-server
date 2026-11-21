@@ -95,9 +95,12 @@ public final class StagedBundleStarter {
 	/**
 	 * Wait until the framework reached its configured start level.
 	 * <p>
-	 * Refreshing a bundle before that races with bundles that are still being started, and after
-	 * the application is up would restart Jetty while it serves requests. The start level event is
-	 * the window in between.
+	 * The timing matters and is deliberate: this is the earliest point at which bundles have
+	 * finished activating, not a point at which the application is ready to serve. The apply must
+	 * happen before Jetty starts accepting requests, because a refresh of a web bundle forces
+	 * {@code DeploymentManager} to redeploy it - harmless while nothing is connected, an outage
+	 * once users are. Waiting for "server ready" instead would move the apply to exactly the wrong
+	 * side of that line.
 	 * @param context bundle context used to reach the framework
 	 * @throws InterruptedException when interrupted while waiting
 	 */

@@ -268,6 +268,20 @@ public class ExtensionBrowserService {
 	 * @throws Exception refresh timed out or the framework reported an error
 	 */
 	private void refreshBundlesAndWait(Collection<Bundle> bundles, String symbolicName) throws Exception {
+		refreshBundlesAndWait(bundles, symbolicName, false);
+	}
+
+	/**
+	 * Refresh bundles and wait for completion.
+	 * @param bundles bundles to refresh; empty does nothing
+	 * @param symbolicName used in timeout and error text
+	 * @param atStartup true when called during framework start, where stopping a server bundle is
+	 *        harmless because nothing is serving yet. False for an in-session update, where the
+	 *        same refresh would take the application down.
+	 * @throws Exception refresh timed out, was refused, or the framework reported an error
+	 */
+	private void refreshBundlesAndWait(Collection<Bundle> bundles, String symbolicName, boolean atStartup)
+			throws Exception {
 		if (bundles == null || bundles.isEmpty())
 			return;
 		if (ExtensionManagerActivator.context == null) {
@@ -277,11 +291,19 @@ public class ExtensionBrowserService {
 		if (wiring == null) {
 			throw new AdempiereException("FrameworkWiring is not available");
 		}
-		// Last line of defence. refreshBundles always expands the seed to its dependents, so the
-		// caller's own check can be defeated by a manifest it did not account for - which is how a
-		// WAB refresh once took the whole application down. Verify the real closure here, where
-		// the framework has the final say, and refuse rather than stop a server bundle.
-		assertClosureIsRefreshable(wiring, bundles, symbolicName);
+		// Last line of defence for an in-session update. refreshBundles always expands the seed to
+		// its dependents, so a caller's own check can be defeated by a manifest it did not account
+		// for - which is how a WAB refresh once took the whole application down. At startup the
+		// same expansion is exactly what is wanted, so the check is skipped there.
+		if (atStartup) {
+			if (log.isLoggable(Level.INFO)) {
+				Collection<Bundle> closure = wiring.getDependencyClosure(bundles);
+				log.info("STARTUP-REFRESH " + symbolicName + " closure=" + (closure == null ? 0 : closure.size())
+						+ " (allowed: nothing is serving yet)");
+			}
+		} else {
+			assertClosureIsRefreshable(wiring, bundles, symbolicName);
+		}
 		CountDownLatch latch = new CountDownLatch(1);
 		FrameworkEvent[] outcome = new FrameworkEvent[1];
 		wiring.refreshBundles(bundles, event -> {
@@ -627,8 +649,33 @@ public class ExtensionBrowserService {
 			}
 			Collection<Bundle> closure = wiring.getDependencyClosure(Collections.singletonList(target));
 			int size = closure == null ? 0 : closure.size();
+			int forbiddenCount = 0;
+			int wildcardCount = 0;
+			List<String> wildcardNames = new ArrayList<>();
+			if (closure != null) {
+				for (Bundle dependent : closure) {
+					String name = dependent.getSymbolicName();
+					if (name == null || name.equals(symbolicName))
+						continue;
+					if (isRefreshForbidden(name))
+						forbiddenCount++;
+					if (describeDynamicImport(dependent, symbolicName) != null) {
+						wildcardCount++;
+						wildcardNames.add(name);
+					}
+				}
+			}
 			log.warning("REFRESH-CLOSURE " + symbolicName + " seed=" + target.getBundleId()
-					+ " size=" + size + " removalPending=" + describeRemovalPending(wiring));
+					+ " size=" + size + " forbidden=" + forbiddenCount
+					+ " dynamicImportOfExtension=" + wildcardCount
+					+ " removalPending=" + describeRemovalPending(wiring));
+			if (wildcardCount > 0) {
+				// The single most useful line for explaining a large closure: these bundles are in it
+				// only because a DynamicImport-Package pattern happens to cover what this extension
+				// exports, not because they use it.
+				log.warning("REFRESH-CLOSURE " + symbolicName + " dynamic importers of its packages: "
+						+ wildcardNames);
+			}
 			if (closure == null)
 				return;
 			for (Bundle dependent : closure) {
@@ -690,6 +737,12 @@ public class ExtensionBrowserService {
 	 * The namespace matters: {@code osgi.wiring.package} is an import, {@code osgi.wiring.host} is
 	 * a fragment attachment, {@code osgi.wiring.bundle} is a Require-Bundle. They have different
 	 * fixes, so the raw requirement is printed alongside.
+	 * <p>
+	 * A bundle with a wildcard {@code DynamicImport-Package} depends on the extension without any
+	 * wire existing: the framework only resolves such an import at class-load time, so it never
+	 * appears in {@code getRequiredWires} yet still puts the bundle in the refresh closure. That
+	 * case used to surface as the unhelpful "indirect", which hid the real cause of a 119-bundle
+	 * closure, so the header is inspected explicitly.
 	 * @return semicolon separated "namespace requirement" entries
 	 */
 	private String describeEdgesTo(Bundle dependent, String symbolicName) {
@@ -715,12 +768,118 @@ public class ExtensionBrowserService {
 					continue;
 				edges.add(namespace.replace("osgi.wiring.", "") + "=" + wire.getRequirement());
 			}
-			if (edges.isEmpty())
-				return "indirect (depends on another closure member)";
-			return String.join(" && ", edges);
+			if (!edges.isEmpty())
+				return String.join(" && ", edges);
+
+			String dynamic = describeDynamicImport(dependent, symbolicName);
+			if (dynamic != null)
+				return dynamic;
+			return "indirect (depends on another closure member)";
 		} catch (Exception e) {
 			return "wire lookup failed: " + e.getMessage();
 		}
+	}
+
+	/**
+	 * Describe the {@code DynamicImport-Package} declaration that makes a bundle a dependent of
+	 * the extension.
+	 * <p>
+	 * These imports have no wire, so they are invisible to the wiring API. Reading the header is
+	 * the only way to explain why an unrelated bundle shows up in a refresh closure.
+	 * <p>
+	 * A pattern is only reported when it can actually match one of the extension's exported
+	 * packages. Without that filter every bundle declaring {@code some.other.*} looked guilty, and
+	 * the summary count became noise instead of evidence.
+	 * @param bundle bundle to inspect
+	 * @param symbolicName extension being updated, used to fetch its exported packages
+	 * @return explanation, or null when the dynamic import cannot reach this extension
+	 */
+	private String describeDynamicImport(Bundle bundle, String symbolicName) {
+		String header;
+		try {
+			header = bundle.getHeaders().get("DynamicImport-Package");
+		} catch (Exception e) {
+			return null;
+		}
+		if (header == null || header.isBlank())
+			return null;
+		List<String> exported = exportedPackagesOf(symbolicName);
+		if (exported.isEmpty())
+			return null;
+		for (String clause : splitHeaderClauses(header)) {
+			String pattern = clause.split(";")[0].trim();
+			if (pattern.isEmpty())
+				continue;
+			for (String pkg : exported) {
+				if (patternMatchesPackage(pattern, pkg))
+					return "dynamic-import(" + pattern + ") matches exported package " + pkg
+							+ " - the framework treats this bundle as a dependent";
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Whether a {@code DynamicImport-Package} pattern matches a package name.
+	 * @param pattern header pattern, possibly ending in {@code *}
+	 * @param packageName candidate package
+	 * @return true when the framework could resolve that package through this pattern
+	 */
+	private static boolean patternMatchesPackage(String pattern, String packageName) {
+		if (pattern.equals("*"))
+			return true;
+		if (pattern.endsWith(".*"))
+			return packageName.startsWith(pattern.substring(0, pattern.length() - 1));
+		return pattern.equals(packageName);
+	}
+
+	/**
+	 * Packages exported by the extension's bundles.
+	 * @param symbolicName extension bundle
+	 * @return exported package names, empty when the bundle is absent or exports nothing
+	 */
+	private List<String> exportedPackagesOf(String symbolicName) {
+		List<String> packages = new ArrayList<>();
+		try {
+			for (Bundle bundle : bundlesNamed(symbolicName)) {
+				String header = bundle.getHeaders().get("Export-Package");
+				if (header == null || header.isBlank())
+					continue;
+				for (String clause : splitHeaderClauses(header)) {
+					String pkg = clause.split(";")[0].trim();
+					if (!pkg.isEmpty() && !packages.contains(pkg))
+						packages.add(pkg);
+				}
+			}
+		} catch (Exception e) {
+			log.fine("Cannot read exported packages of " + symbolicName + ": " + e.getMessage());
+		}
+		return packages;
+	}
+
+	/**
+	 * Split an OSGi header into clauses on commas that are not inside quotes.
+	 * @param header raw header value
+	 * @return clause list, never null
+	 */
+	private static List<String> splitHeaderClauses(String header) {
+		List<String> clauses = new ArrayList<>();
+		StringBuilder current = new StringBuilder();
+		boolean quoted = false;
+		for (int i = 0; i < header.length(); i++) {
+			char c = header.charAt(i);
+			if (c == '"')
+				quoted = !quoted;
+			if (c == ',' && !quoted) {
+				clauses.add(current.toString());
+				current.setLength(0);
+				continue;
+			}
+			current.append(c);
+		}
+		if (current.length() > 0)
+			clauses.add(current.toString());
+		return clauses;
 	}
 
 	private static String nameOf(org.osgi.framework.wiring.BundleRevision revision) {
@@ -798,11 +957,14 @@ public class ExtensionBrowserService {
 	 * Apply staged bundle revisions. Call once during framework start.
 	 * <p>
 	 * A staged revision is a jar this server accepted but could not apply while it was serving
-	 * users. Applying it here is safe for the reason the in-session path is not: nothing is
-	 * serving yet, so stopping and refreshing the bundle costs nothing.
+	 * users. Applying it here is safe for the reason the in-session path is not: at this point the
+	 * application has not begun serving requests, so stopping and refreshing the bundle has no user
+	 * impact.
 	 * <p>
-	 * The staged file is only deleted after the framework accepted it, so a failed apply can be
-	 * retried on the next start instead of silently losing the update.
+	 * The staged jar is deleted only after the framework accepted the revision, and the marker is
+	 * kept until the extension row is settled. That way a failed apply is retried on the next start
+	 * instead of silently losing the update, and a successful one can still be attributed to its
+	 * extension.
 	 */
 	public void applyStagedBundles() {
 		if (ExtensionManagerActivator.context == null)
@@ -811,9 +973,24 @@ public class ExtensionBrowserService {
 		File[] jars = dir.listFiles((d, name) -> name.endsWith(".jar"));
 		if (jars == null)
 			return;
+		if (jars.length == 0) {
+			// Keep the marker-only state visible: a marker with no jar means an earlier start
+			// applied the revision and the row still has to be settled.
+			List<String> pending = getStagedBundles();
+			if (!pending.isEmpty())
+				log.warning("STAGED-BUNDLES marker present but jar already consumed: " + pending);
+			return;
+		}
 		for (File jar : jars) {
 			String symbolicName = jar.getName().substring(0, jar.getName().length() - ".jar".length());
 			File owner = new File(dir, symbolicName + ".extension");
+			File abandoned = new File(dir, symbolicName + FAILED_SUFFIX);
+			if (abandoned.exists()) {
+				// Gave up on a previous start; retrying every boot only slows startup down.
+				log.warning("Staged jar " + jar.getName() + " is abandoned (" + abandoned.getName()
+						+ " exists); delete both files to retry");
+				continue;
+			}
 			if (!owner.exists()) {
 				// No owner means no extension row to settle afterwards. Leave it in place rather
 				// than install a bundle nothing can account for.
@@ -827,11 +1004,73 @@ public class ExtensionBrowserService {
 				// reconcileStagedInstalls needs to know which extension this revision belongs to.
 				if (!jar.delete())
 					log.warning("Staged jar " + jar.getName() + " could not be deleted after apply");
+				clearAttempts(dir, symbolicName);
 				log.warning("Staged update of " + symbolicName + " applied at startup");
 			} catch (Exception e) {
-				log.log(Level.SEVERE, "Staged update of " + symbolicName + " could not be applied", e);
+				int attempts = recordAttemptFailure(dir, symbolicName);
+				if (attempts >= MAX_STAGED_ATTEMPTS) {
+					// Stop retrying: a revision that failed this often will not apply on its own.
+					// The jar is renamed rather than deleted so the file is still there to inspect.
+					if (jar.renameTo(abandoned))
+						log.log(Level.SEVERE, "Staged update of " + symbolicName + " failed " + attempts
+								+ " times; abandoned as " + abandoned.getName()
+								+ ". Investigate the cause, then delete the .failed and .extension files to retry.", e);
+					else
+						log.log(Level.SEVERE, "Staged update of " + symbolicName + " failed " + attempts
+								+ " times and could not be renamed to " + abandoned.getName(), e);
+				} else {
+					log.log(Level.SEVERE, "Staged update of " + symbolicName + " could not be applied (attempt "
+							+ attempts + " of " + MAX_STAGED_ATTEMPTS + ")", e);
+				}
 			}
 		}
+	}
+
+	/** Marks a staged revision that exceeded {@link #MAX_STAGED_ATTEMPTS}. */
+	private static final String FAILED_SUFFIX = ".failed";
+
+	/** Per-bundle counter of failed startup applies, kept next to the staged jar. */
+	private static final String ATTEMPTS_SUFFIX = ".attempts";
+
+	/**
+	 * Give up after this many startup failures. Each failure means a boot spent time stopping,
+	 * updating and refreshing a bundle cluster for nothing, so an unbounded retry is not harmless.
+	 */
+	private static final int MAX_STAGED_ATTEMPTS = 3;
+
+	/**
+	 * Increment the failure counter for a staged bundle.
+	 * @param dir staged-bundles directory
+	 * @param symbolicName bundle that failed
+	 * @return the new attempt count, 1 when the counter was unreadable
+	 */
+	private int recordAttemptFailure(File dir, String symbolicName) {
+		File counter = new File(dir, symbolicName + ATTEMPTS_SUFFIX);
+		int attempts = 1;
+		try {
+			if (counter.exists()) {
+				String text = new String(java.nio.file.Files.readAllBytes(counter.toPath()),
+						StandardCharsets.UTF_8).trim();
+				attempts = Integer.parseInt(text) + 1;
+			}
+			java.nio.file.Files.writeString(counter.toPath(), Integer.toString(attempts),
+					StandardCharsets.UTF_8);
+		} catch (Exception e) {
+			// A counter that cannot be written must not hide the apply failure itself.
+			log.log(Level.WARNING, "Cannot record staged apply attempt for " + symbolicName, e);
+		}
+		return attempts;
+	}
+
+	/**
+	 * Drop the failure counter after a successful apply.
+	 * @param dir staged-bundles directory
+	 * @param symbolicName bundle that applied
+	 */
+	private void clearAttempts(File dir, String symbolicName) {
+		File counter = new File(dir, symbolicName + ATTEMPTS_SUFFIX);
+		if (counter.exists() && !counter.delete())
+			log.fine("Could not delete attempt counter " + counter.getName());
 	}
 
 	/**
@@ -863,7 +1102,11 @@ public class ExtensionBrowserService {
 		try (java.io.FileInputStream fis = new java.io.FileInputStream(jar)) {
 			target.update(fis);
 		}
-		refreshBundlesAndWait(Collections.singletonList(target), symbolicName);
+		// Startup mode: the bundle that gets refreshed is the extension itself and the closures it
+		// pulls in are being restarted anyway, so the in-session blast-radius check must not apply
+		// here. Applying it was what made a staged update fail on every restart - the check saw the
+		// same core bundles it had refused in-session and threw before anything was applied.
+		refreshBundlesAndWait(Collections.singletonList(target), symbolicName, true);
 		if (target.getState() != Bundle.ACTIVE)
 			target.start();
 		return new BundleInstallResult(target, false, false);
@@ -951,7 +1194,8 @@ public class ExtensionBrowserService {
 		// The marker is written first. A jar without a marker cannot be attributed to an extension,
 		// and the startup apply must not install something it cannot account for.
 		if (extensionId != null)
-			java.nio.file.Files.writeString(owner.toPath(), extensionId, StandardCharsets.UTF_8);
+			java.nio.file.Files.writeString(owner.toPath(),
+					buildMarker(extensionId, symbolicName, jarFile), StandardCharsets.UTF_8);
 		try {
 			java.nio.file.Files.copy(jarFile.toPath(), target.toPath(),
 					java.nio.file.StandardCopyOption.REPLACE_EXISTING);
@@ -965,6 +1209,88 @@ public class ExtensionBrowserService {
 	}
 
 	/**
+	 * Marker content describing a staged revision.
+	 * <p>
+	 * JSON rather than a bare extension id: when an update does not apply, the first questions are
+	 * which version was replaced, which one was meant to take over, and when it was staged. The
+	 * plain id answered none of them.
+	 * @param extensionId extension the bundle belongs to
+	 * @param symbolicName bundle being staged
+	 * @param jarFile downloaded revision
+	 * @return single line JSON, escaped for the values that can contain quotes
+	 */
+	private String buildMarker(String extensionId, String symbolicName, File jarFile) {
+		String from = currentBundleVersion(symbolicName);
+		String to = bundleVersionFromJar(jarFile);
+		return "{\"extensionId\":\"" + extensionId + "\""
+				+ ",\"bundle\":\"" + symbolicName + "\""
+				+ ",\"from\":\"" + (from == null ? "" : from) + "\""
+				+ ",\"to\":\"" + (to == null ? "" : to) + "\""
+				+ ",\"stagedAt\":\"" + java.time.LocalDateTime.now().withNano(0) + "\"}";
+	}
+
+	/**
+	 * Version of the bundle currently installed for a symbolic name.
+	 * @param symbolicName bundle to look up
+	 * @return version string, or null when no live bundle exists
+	 */
+	private String currentBundleVersion(String symbolicName) {
+		try {
+			for (Bundle bundle : bundlesNamed(symbolicName)) {
+				if (bundle.getState() != Bundle.UNINSTALLED)
+					return bundle.getVersion().toString();
+			}
+		} catch (Exception e) {
+			log.fine("Cannot read current version of " + symbolicName + ": " + e.getMessage());
+		}
+		return null;
+	}
+
+	/**
+	 * Read {@code Bundle-Version} from a jar without installing it.
+	 * @param jarFile candidate bundle jar
+	 * @return version string, or null when it cannot be read
+	 */
+	private String bundleVersionFromJar(File jarFile) {
+		try (java.util.jar.JarFile jar = new java.util.jar.JarFile(jarFile)) {
+			java.util.jar.Manifest manifest = jar.getManifest();
+			if (manifest == null)
+				return null;
+			return manifest.getMainAttributes().getValue("Bundle-Version");
+		} catch (Exception e) {
+			log.fine("Cannot read Bundle-Version from " + jarFile.getName() + ": " + e.getMessage());
+			return null;
+		}
+	}
+
+	/**
+	 * Extension id recorded in a marker file.
+	 * <p>
+	 * Accepts both the current JSON form and the original plain-text form, so markers written by an
+	 * earlier build keep working instead of becoming unattributable.
+	 * @param marker marker file
+	 * @return extension id, or null when the file cannot be read
+	 */
+	private String readMarkerExtensionId(File marker) {
+		try {
+			String text = new String(java.nio.file.Files.readAllBytes(marker.toPath()),
+					StandardCharsets.UTF_8).trim();
+			if (text.isEmpty())
+				return null;
+			if (!text.startsWith("{")) {
+				// Legacy marker: the whole file was the extension id.
+				return text;
+			}
+			com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+			if (json.has("extensionId") && !json.get("extensionId").isJsonNull())
+				return json.get("extensionId").getAsString();
+		} catch (Exception e) {
+			log.fine("Cannot read staged marker " + marker.getName() + ": " + e.getMessage());
+		}
+		return null;
+	}
+
+	/**
 	 * Delete a staged revision, for an operator who prefers not to apply it.
 	 * @param symbolicName bundle that was staged
 	 * @return true when something was removed
@@ -972,13 +1298,14 @@ public class ExtensionBrowserService {
 	public boolean discardStagedBundle(String symbolicName) {
 		File dir = stagedBundleDir();
 		boolean removed = false;
-		File owner = new File(dir, symbolicName + ".extension");
-		if (owner.exists())
-			removed = owner.delete();
-		File target = new File(dir, symbolicName + ".jar");
-		// The jar may already be gone: the startup apply deletes it and keeps the marker.
-		if (target.exists() && target.delete())
-			removed = true;
+		// Everything that belongs to this staged revision goes, including the bookkeeping files, so
+		// a later stage of the same bundle starts from a clean slate instead of inheriting an
+		// attempt counter or an abandoned flag.
+		for (String suffix : new String[] {".extension", ".jar", ATTEMPTS_SUFFIX, FAILED_SUFFIX}) {
+			File file = new File(dir, symbolicName + suffix);
+			if (file.exists() && file.delete())
+				removed = true;
+		}
 		return removed;
 	}
 
@@ -1117,16 +1444,14 @@ public class ExtensionBrowserService {
 		String extensionId = extension.getExtensionId();
 		if (extensionId == null)
 			return owned;
+		File dir = stagedBundleDir();
 		for (String symbolicName : getStagedBundles()) {
-			File owner = new File(stagedBundleDir(), symbolicName + ".extension");
+			File owner = new File(dir, symbolicName + ".extension");
 			if (!owner.exists())
 				continue;
-			try {
-				if (extensionId.equals(java.nio.file.Files.readString(owner.toPath()).trim()))
-					owned.add(symbolicName);
-			} catch (Exception e) {
-				log.log(Level.FINE, "Cannot read stage marker " + owner, e);
-			}
+			// Handles both the JSON marker and the plain-text one written by earlier builds.
+			if (extensionId.equals(readMarkerExtensionId(owner)))
+				owned.add(symbolicName);
 		}
 		return owned;
 	}
@@ -1951,7 +2276,11 @@ public class ExtensionBrowserService {
 				if (result.isStaged()) {
 					stagedBundles.add(symbolicName);
 					if (statusCallback != null)
-						statusCallback.onCallback(Msg.getMsg(Env.getCtx(), "ExtensionBundleStaged", new Object[]{symbolicName}));
+						// Plain text rather than a Msg lookup: this key has no AD_Message row, and a
+						// missing key makes Msg return the key itself, which is what showed up as
+						// "ExtensionBundleStaged" in the process log.
+						statusCallback.onCallback("Staged " + symbolicName
+								+ " for the next restart; the running version is untouched.");
 				} else {
 					installedBundles.add(result.getBundle());
 					if (result.isCreated())
