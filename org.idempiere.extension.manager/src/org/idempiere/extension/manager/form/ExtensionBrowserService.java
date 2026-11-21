@@ -454,7 +454,13 @@ public class ExtensionBrowserService {
 			throw new AdempiereException("Cannot move " + tempDir + " to " + targetDir);
 		}
 
-		removeOtherVersions(pluginsDir, symbolicName, dirName);
+		// Superseded versions are deliberately left on disk. Two reasons: they are locked while the
+		// old revision is still running (Windows refuses to delete an open jar, which produced a
+		// flood of "Could not delete" warnings), and keeping them makes a rollback a matter of
+		// pointing bundles.info back at the old directory. bundles.info is the only source of
+		// loaded bundles, so an unregistered directory is inert - it is never scanned or resolved.
+		List<String> retained = otherDeployedVersions(pluginsDir, symbolicName, dirName);
+
 		updateBundlesInfo(installRoot, symbolicName, version, "plugins/" + dirName + "/");
 
 		// Written last: the marker now means "on disk but not loaded by this process", which is what
@@ -463,8 +469,47 @@ public class ExtensionBrowserService {
 		writePendingMarker(extensionId, symbolicName, version, jarFile);
 
 		log.warning("DEPLOYED " + symbolicName + " " + version + " to " + targetDir
-				+ " (takes effect at the next server start)");
+				+ " (becomes active at the next server start)");
+		if (!retained.isEmpty()) {
+			// One line instead of one warning per locked file: says what is still on disk and why
+			// that is harmless, so an operator does not mistake it for a failed cleanup.
+			log.warning("Retained superseded deployment(s) of " + symbolicName + " on disk: "
+					+ retained + ". They are not registered in bundles.info and are never loaded; "
+					+ "delete them manually if disk space matters.");
+		}
 		return new BundleInstallResult(null, false, true);
+	}
+
+	/**
+	 * Other deployed directories of the same bundle, for logging only.
+	 * <p>
+	 * Nothing is deleted: a superseded version cannot be removed while the old revision still runs,
+	 * and keeping it allows a rollback by editing {@code bundles.info}. This method exists so the
+	 * deploy log can state what was left behind instead of silently accumulating.
+	 * @param pluginsDir plugins directory
+	 * @param symbolicName bundle whose other versions to list
+	 * @param currentDirName directory just deployed, excluded from the result
+	 * @return names of superseded directories, newest-looking first; empty when none exist
+	 */
+	private List<String> otherDeployedVersions(File pluginsDir, String symbolicName, String currentDirName) {
+		List<String> others = new ArrayList<>();
+		File[] candidates = pluginsDir.listFiles();
+		if (candidates == null)
+			return others;
+		String prefix = symbolicName + "_";
+		for (File candidate : candidates) {
+			String name = candidate.getName();
+			if (!candidate.isDirectory() || name.equals(currentDirName) || !name.startsWith(prefix))
+				continue;
+			// Only version directories, never a longer symbolic name that happens to share the prefix
+			// or a transient ".tmp" extraction directory.
+			String remainder = name.substring(prefix.length());
+			if (!remainder.matches("\\d[\\w.\\-]*"))
+				continue;
+			others.add(name);
+		}
+		Collections.sort(others, Collections.reverseOrder());
+		return others;
 	}
 
 	/**
@@ -822,38 +867,11 @@ public class ExtensionBrowserService {
 	}
 
 	/**
-	 * Remove other deployed versions of the same bundle.
-	 * <p>
-	 * Two directories for one {@code singleton:=true} bundle cannot both resolve, and the start
-	 * would then depend on directory ordering. Only directories whose name is
-	 * {@code <symbolicName>_} followed by a version are touched, so similarly named bundles are
-	 * left alone.
-	 * @param pluginsDir plugins directory
-	 * @param symbolicName bundle to keep only one version of
-	 * @param keepDirName directory name of the version just deployed
-	 */
-	private void removeOtherVersions(File pluginsDir, String symbolicName, String keepDirName) {
-		File[] candidates = pluginsDir.listFiles();
-		if (candidates == null)
-			return;
-		String prefix = symbolicName + "_";
-		for (File candidate : candidates) {
-			String name = candidate.getName();
-			if (name.equals(keepDirName) || !name.startsWith(prefix))
-				continue;
-			// Only strip versions, never a longer symbolic name that happens to start with prefix.
-			String remainder = name.substring(prefix.length());
-			if (!remainder.matches("\\d[\\w.\\-]*"))
-				continue;
-			if (name.endsWith(".bak") || name.endsWith(".tmp"))
-				continue;
-			log.warning("Removing superseded deployment " + candidate.getName());
-			deleteRecursively(candidate);
-		}
-	}
-
-	/**
 	 * Recursively delete a file or directory.
+	 * <p>
+	 * Used only for this manager's own transient paths - a {@code .tmp} extraction directory and
+	 * the same-version target it replaces. Superseded versions of a different release are never
+	 * deleted; see {@link #otherDeployedVersions}.
 	 * @param file target, ignored when absent
 	 */
 	private void deleteRecursively(File file) {
@@ -866,8 +884,12 @@ public class ExtensionBrowserService {
 					deleteRecursively(child);
 			}
 		}
-		if (!file.delete())
-			log.warning("Could not delete " + file);
+		if (!file.delete()) {
+			// Only transient paths reach here now, so a failure is expected when a previous JVM
+			// still holds a handle. Log at fine: the caller already reports anything that matters,
+			// and one warning per file would bury it.
+			log.fine("Could not delete " + file);
+		}
 	}
 
 	/**
@@ -1429,6 +1451,14 @@ public class ExtensionBrowserService {
 		if (base == null)
 			base = new File(System.getProperty("user.dir"));
 		return new File(base, "staged-bundles");
+	}
+
+	/**
+	 * Install root for read-only display purposes.
+	 * @return the directory containing {@code plugins/} and {@code configuration/}, or null
+	 */
+	public File installRootForDisplay() {
+		return bundleInstallRoot();
 	}
 
 	/**

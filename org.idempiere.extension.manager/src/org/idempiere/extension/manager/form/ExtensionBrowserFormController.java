@@ -355,6 +355,42 @@ public class ExtensionBrowserFormController implements IFormController {
 	}
 
 	/**
+	 * The version of this extension registered in {@code bundles.info}.
+	 * <p>
+	 * This is the version that will be loaded at the next start, which is not necessarily the one
+	 * currently running (that only changes after a restart) nor the catalog version. Read from the
+	 * registry rather than from a running bundle, because the interesting case is precisely when
+	 * the two differ.
+	 * @param extension extension shown in the details area
+	 * @return registered version, or null when the extension is not registered
+	 */
+	private String deployedVersionOf(ExtensionMetadata extension) {
+		if (extension == null || extension.getId() == null)
+			return null;
+		try {
+			File installRoot = service.installRootForDisplay();
+			if (installRoot == null)
+				return null;
+			File info = new File(installRoot,
+					"configuration/org.eclipse.equinox.simpleconfigurator/bundles.info");
+			if (!info.isFile())
+				return null;
+			for (String line : java.nio.file.Files.readAllLines(info.toPath(),
+					java.nio.charset.StandardCharsets.UTF_8)) {
+				if (line.isBlank() || line.startsWith("#"))
+					continue;
+				// Format: symbolicName,version,path,startLevel,autoStart
+				String[] parts = line.split(",");
+				if (parts.length > 1 && parts[0].trim().equals(extension.getId()))
+					return parts[1].trim();
+			}
+		} catch (Exception e) {
+			log.log(Level.FINE, "Cannot read deployed version of " + extension.getId(), e);
+		}
+		return null;
+	}
+
+	/**
 	 * Whether a deployed revision is on disk but not loaded by the running process.
 	 * <p>
 	 * Driven by the pending-restart marker, which is written only by the file deployment path. An
@@ -418,6 +454,14 @@ public class ExtensionBrowserFormController implements IFormController {
 
 		if (extension.hasIDempiereVersion()) {
 			sb.append("<div><label>iDempiere %s</label><span>".formatted(Msg.getMsg(Env.getCtx(), "Version"))).append(extension.getIDempiereVersion()).append("</span></div>");
+		}
+		// The version above is what the catalog offers. When that differs from what is on disk, an
+		// operator needs to see both, otherwise "Pending" looks like the catalog version is already
+		// in use. Superseded directories left in plugins/ are deliberately not listed: only the
+		// version registered in bundles.info is ever loaded.
+		String deployedVersion = deployedVersionOf(extension);
+		if (deployedVersion != null && !deployedVersion.equals(version)) {
+			sb.append("<div><label>Deployed</label><span>").append(AEnv.sanitize(deployedVersion)).append("</span></div>");
 		}
 		sb.append("<div><label>%s</label><span>".formatted(Msg.getMsg(Env.getCtx(), "Updated"))).append(AEnv.sanitize(lastUpdated)).append("</span></div>");
 		if (isStagedFor(extension)) {
