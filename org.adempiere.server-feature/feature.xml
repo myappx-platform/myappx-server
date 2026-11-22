@@ -63,6 +63,10 @@
          version="0.0.0"/>
 
    <plugin
+         id="org.idempiere.myappx.extension.repository"
+         version="0.0.0"/>
+
+   <plugin
          id="org.adempiere.eclipse.equinox.http.servlet"
          version="0.0.0"/>
 

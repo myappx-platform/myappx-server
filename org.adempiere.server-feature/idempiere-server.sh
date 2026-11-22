@@ -27,7 +27,7 @@ echo ===================================
 TELNET_PORT=${TELNET_PORT:-12612}
 HOST=${HOST:-localhost}
 
-IDEMPIERE_EXTENSION_REPOSITORY=${IDEMPIERE_EXTENSION_REPOSITORY:-https://github.com/idempiere/idempiere-extension-repository}
+IDEMPIERE_EXTENSION_REPOSITORY=${IDEMPIERE_EXTENSION_REPOSITORY:-http://127.0.0.1:18080/myappx-extension-repository}
 
 VMOPTS="-Dorg.osgi.framework.bootdelegation=sun.security.ssl
 -Dosgi.compatibility.bootdelegation=true

@@ -5,5 +5,6 @@
 	  <location type="Target" uri="file:${project_loc:/org.idempiere.p2.targetplatform}/base.target"/>
 	  <location type="Target" uri="file:${project_loc:/org.idempiere.p2.targetplatform}/maven.locations.target"/>
 	  <location type="Target" uri="file:${project_loc:/org.idempiere.p2.targetplatform}/bouncy.castle.target"/>
+	  <location type="Target" uri="file:${project_loc:/org.idempiere.p2.targetplatform}/myappx.extension.repository.target"/>
   </locations>
 </target>
