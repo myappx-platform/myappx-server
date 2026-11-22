@@ -2,7 +2,7 @@
 <?pde?>
 <target name="myappx-extension-repository" sequenceNumber="20261122">
   <locations>
-    <location includeMode="planner" includeAllPlatforms="false" includeSource="false" includeConfigurePhase="false" type="InstallableUnit">
+    <location includeMode="slicer" includeAllPlatforms="true" includeSource="true" includeConfigurePhase="true" type="InstallableUnit">
       <unit id="org.idempiere.myappx.extension.repository" version="0.0.0"/>
       <repository location="${system_property:myappx.extension.repository.url}"/>
     </location>
