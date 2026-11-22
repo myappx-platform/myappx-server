@@ -407,7 +407,7 @@ public class ExtensionBrowserService {
 	}
 
 	/**
-	 * Write a bundle to {@code plugins/} in directory form and register it in {@code bundles.info}.
+	 * Write a bundle into {@code plugins/} and register it in {@code bundles.info}.
 	 * <p>
 	 * This replaces the previous in-place {@code Bundle.update} plus {@code refreshBundles} path.
 	 * That path cannot be used here: refreshing a web bundle expands to every bundle wired to it
@@ -415,10 +415,13 @@ public class ExtensionBrowserService {
 	 * {@code org.adempiere.ui.zk} and {@code org.adempiere.server}. Doing so tears down the
 	 * deployed web contexts and the application becomes unreachable.
 	 * <p>
-	 * Deploying on disk instead has no runtime effect at all: the running revision keeps serving,
-	 * and the new one is picked up by the next start. Directory form is what the bundle asks for
-	 * ({@code Eclipse-BundleShape: dir}) and matches how
-	 * {@code org.idempiere.myappx.extension.repository} is already deployed.
+	 * Deploying on disk has no runtime effect at all: the running revision keeps serving, and the
+	 * new one is picked up by the next start.
+	 * <p>
+	 * The shape follows the bundle rather than a fixed rule. A plain bundle is written as a single
+	 * jar, which is what the product does for 382 of its 389 bundles; a bundle that needs a
+	 * directory (see {@link #requiresDirectoryShape}) is extracted. An existing registration keeps
+	 * its shape, so repeated updates do not make the layout drift between jar and directory.
 	 * @param extensionId extension the bundle belongs to, recorded in the staged marker
 	 * @param symbolicName bundle to deploy
 	 * @param jarFile downloaded bundle
@@ -433,9 +436,8 @@ public class ExtensionBrowserService {
 		String version = bundleVersionFromJar(jarFile);
 		if (version == null || version.isBlank())
 			throw new AdempiereException("Bundle " + symbolicName + " has no Bundle-Version; refusing to deploy");
-		String dirName = symbolicName + "_" + version;
+
 		File pluginsDir = new File(installRoot, "plugins");
-		File targetDir = new File(pluginsDir, dirName);
 
 		// Evidence for a future in-place path; must run while the old revision is still live.
 		diagnoseBeforeDeploy(liveBundleNamed(symbolicName), symbolicName);
@@ -443,32 +445,42 @@ public class ExtensionBrowserService {
 		if (!pluginsDir.exists() && !pluginsDir.mkdirs())
 			throw new AdempiereException("Cannot create " + pluginsDir);
 
-		// A half-written directory would make the bundle unresolvable at the next start, so it is
-		// extracted beside the final name and moved into place only once complete.
-		File tempDir = new File(pluginsDir, dirName + ".tmp");
-		deleteRecursively(tempDir);
-		extractJar(jarFile, tempDir);
-		deleteRecursively(targetDir);
-		if (!tempDir.renameTo(targetDir)) {
-			deleteRecursively(tempDir);
-			throw new AdempiereException("Cannot move " + tempDir + " to " + targetDir);
+		boolean asDirectory = chooseDirectoryShape(symbolicName, jarFile);
+		String entryName = symbolicName + "_" + version + (asDirectory ? "/" : ".jar");
+		File target = new File(pluginsDir, symbolicName + "_" + version + (asDirectory ? "" : ".jar"));
+
+		// A half-written artifact would make the bundle unresolvable at the next start, so it is
+		// staged beside the final name and moved into place only once complete.
+		File temp = new File(pluginsDir, entryName.replace("/", "") + ".tmp");
+		deleteRecursively(temp);
+		if (asDirectory) {
+			extractJar(jarFile, temp);
+		} else {
+			java.nio.file.Files.copy(jarFile.toPath(), temp.toPath(),
+					java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		}
+		deleteRecursively(target);
+		if (!temp.renameTo(target)) {
+			deleteRecursively(temp);
+			throw new AdempiereException("Cannot move " + temp + " to " + target);
 		}
 
 		// Superseded versions are deliberately left on disk. Two reasons: they are locked while the
 		// old revision is still running (Windows refuses to delete an open jar, which produced a
 		// flood of "Could not delete" warnings), and keeping them makes a rollback a matter of
-		// pointing bundles.info back at the old directory. bundles.info is the only source of
-		// loaded bundles, so an unregistered directory is inert - it is never scanned or resolved.
-		List<String> retained = otherDeployedVersions(pluginsDir, symbolicName, dirName);
+		// pointing bundles.info back at the old path. bundles.info is the only source of loaded
+		// bundles, so an unregistered artifact is inert - it is never scanned or resolved.
+		List<String> retained = otherDeployedVersions(pluginsDir, symbolicName, target.getName());
 
-		updateBundlesInfo(installRoot, symbolicName, version, "plugins/" + dirName + "/");
+		updateBundlesInfo(installRoot, symbolicName, version, "plugins/" + entryName);
 
 		// Written last: the marker now means "on disk but not loaded by this process", which is what
 		// the UI and reconcileStagedInstalls read. Any failure above leaves no marker behind, so a
 		// partial deploy is never reported as pending.
 		writePendingMarker(extensionId, symbolicName, version, jarFile);
 
-		log.warning("DEPLOYED " + symbolicName + " " + version + " to " + targetDir
+		log.warning("DEPLOYED " + symbolicName + " " + version + " to " + target
+				+ (asDirectory ? " (directory shape)" : " (jar shape)")
 				+ " (becomes active at the next server start)");
 		if (!retained.isEmpty()) {
 			// One line instead of one warning per locked file: says what is still on disk and why
@@ -481,17 +493,83 @@ public class ExtensionBrowserService {
 	}
 
 	/**
-	 * Other deployed directories of the same bundle, for logging only.
+	 * Decide whether this deployment must be a directory.
+	 * <p>
+	 * Priority: the bundle's own manifest wins over the shape already registered, because a
+	 * manifest that needs a directory cannot work as a jar. Otherwise an existing registration is
+	 * kept so the layout does not flip between jar and directory on every update. A first install
+	 * of a plain bundle becomes a jar, matching the product.
+	 * @param symbolicName bundle being deployed
+	 * @param jarFile downloaded jar
+	 * @return true to deploy as a directory
+	 */
+	private boolean chooseDirectoryShape(String symbolicName, File jarFile) {
+		boolean manifestNeedsDir = requiresDirectoryShape(jarFile);
+		Boolean registeredAsDir = isRegisteredAsDirectory(symbolicName);
+		if (manifestNeedsDir) {
+			if (Boolean.FALSE.equals(registeredAsDir))
+				log.warning(symbolicName + ": was registered as a jar but its manifest now requires a "
+						+ "directory shape; switching. The superseded jar stays on disk, unregistered.");
+			return true;
+		}
+		if (registeredAsDir != null)
+			return registeredAsDir;
+		// Fresh install of a bundle whose manifest does not ask for a directory: single jar, which
+		// is how the product ships almost all of its bundles.
+		return false;
+	}
+
+	/**
+	 * Whether a jar must be deployed as an extracted directory.
+	 * <p>
+	 * Deliberately conservative: any of these means a jar is not safe or not correct.
+	 * <ul>
+	 *   <li>{@code Web-ContextPath}: a web application bundle. The Web Extender reads
+	 *       {@code WEB-INF/web.xml} through the bundle, and every web bundle in the product is
+	 *       shipped as a directory.</li>
+	 *   <li>{@code Eclipse-BundleShape: dir}: the bundle was packaged for directory form.</li>
+	 *   <li>{@code Bundle-NativeCode}: native libraries cannot be loaded from inside a plain jar
+	 *       bundle class path.</li>
+	 * </ul>
+	 * @param jarFile candidate bundle
+	 * @return true when the directory form is required
+	 */
+	private boolean requiresDirectoryShape(File jarFile) {
+		try (java.util.jar.JarFile jar = new java.util.jar.JarFile(jarFile)) {
+			java.util.jar.Manifest manifest = jar.getManifest();
+			if (manifest == null)
+				return false;
+			java.util.jar.Attributes main = manifest.getMainAttributes();
+			if (main.getValue("Web-ContextPath") != null)
+				return true;
+			String shape = main.getValue("Eclipse-BundleShape");
+			if (shape != null && "dir".equalsIgnoreCase(shape.trim()))
+				return true;
+			return main.getValue("Bundle-NativeCode") != null;
+		} catch (Exception e) {
+			// An unreadable manifest is treated as needing a directory: extraction is the safer
+			// default because it works for both kinds of bundle.
+			log.log(Level.WARNING, "Cannot read the manifest of " + jarFile.getName()
+					+ "; deploying as a directory", e);
+			return true;
+		}
+	}
+
+	/**
+	 * Other deployed artifacts of the same bundle, for logging only.
 	 * <p>
 	 * Nothing is deleted: a superseded version cannot be removed while the old revision still runs,
 	 * and keeping it allows a rollback by editing {@code bundles.info}. This method exists so the
 	 * deploy log can state what was left behind instead of silently accumulating.
+	 * <p>
+	 * Both shapes are listed. A bundle can legitimately have a directory from an earlier deployment
+	 * and a jar from a current one, and reporting only directories would hide half the residue.
 	 * @param pluginsDir plugins directory
 	 * @param symbolicName bundle whose other versions to list
-	 * @param currentDirName directory just deployed, excluded from the result
-	 * @return names of superseded directories, newest-looking first; empty when none exist
+	 * @param currentEntryName artifact just deployed, excluded from the result
+	 * @return names of superseded artifacts with their shape, newest-looking first
 	 */
-	private List<String> otherDeployedVersions(File pluginsDir, String symbolicName, String currentDirName) {
+	private List<String> otherDeployedVersions(File pluginsDir, String symbolicName, String currentEntryName) {
 		List<String> others = new ArrayList<>();
 		File[] candidates = pluginsDir.listFiles();
 		if (candidates == null)
@@ -499,12 +577,23 @@ public class ExtensionBrowserService {
 		String prefix = symbolicName + "_";
 		for (File candidate : candidates) {
 			String name = candidate.getName();
-			if (!candidate.isDirectory() || name.equals(currentDirName) || !name.startsWith(prefix))
+			if (name.equals(currentEntryName) || !name.startsWith(prefix))
 				continue;
-			// Only version directories, never a longer symbolic name that happens to share the prefix
-			// or a transient ".tmp" extraction directory.
+			// Never a transient ".tmp" staging artifact.
+			if (name.endsWith(".tmp"))
+				continue;
 			String remainder = name.substring(prefix.length());
-			if (!remainder.matches("\\d[\\w.\\-]*"))
+			if (candidate.isDirectory()) {
+				// Only version directories, never a longer symbolic name sharing the prefix.
+				if (!remainder.matches("\\d[\\w.\\-]*"))
+					continue;
+				others.add(name + "/");
+				continue;
+			}
+			// A jar whose name is <symbolicName>_<version>.jar.
+			if (!remainder.endsWith(".jar"))
+				continue;
+			if (!remainder.substring(0, remainder.length() - 4).matches("\\d[\\w.\\-]*"))
 				continue;
 			others.add(name);
 		}
@@ -523,26 +612,56 @@ public class ExtensionBrowserService {
 	 * @return true when {@code bundles.info} already has a line for it
 	 */
 	private boolean isFileDeployed(String symbolicName) {
+		return registeredPluginPath(symbolicName) != null;
+	}
+
+	/**
+	 * The {@code plugins/} path a bundle is registered with, in {@code bundles.info}.
+	 * <p>
+	 * One read serves both questions the deploy path needs: whether the bundle is managed at all,
+	 * and in which shape. Reading the file twice invites the two answers to disagree.
+	 * @param symbolicName bundle to look up
+	 * @return the third field of its {@code bundles.info} line, or null when not registered
+	 */
+	private String registeredPluginPath(String symbolicName) {
 		File installRoot = bundleInstallRoot();
 		if (installRoot == null)
-			return false;
+			return null;
 		File info = new File(installRoot,
 				"configuration/org.eclipse.equinox.simpleconfigurator/bundles.info");
 		if (!info.isFile())
-			return false;
+			return null;
 		try {
+			// simpleconfigurator wraps nothing, but a hand-edited file can; read the first 5 fields
+			// defensively and only require enough of them to find the path.
 			for (String line : java.nio.file.Files.readAllLines(info.toPath(), StandardCharsets.UTF_8)) {
 				if (line.isBlank() || line.startsWith("#"))
 					continue;
-				int comma = line.indexOf(',');
-				String existing = comma > 0 ? line.substring(0, comma).trim() : line.trim();
-				if (existing.equals(symbolicName))
-					return true;
+				String[] parts = line.split(",");
+				if (parts.length < 3)
+					continue;
+				if (parts[0].trim().equals(symbolicName))
+					return parts[2].trim();
 			}
 		} catch (Exception e) {
 			log.log(Level.FINE, "Cannot read bundles.info while checking " + symbolicName, e);
 		}
-		return false;
+		return null;
+	}
+
+	/**
+	 * Whether the bundle is currently registered as a directory rather than a jar.
+	 * <p>
+	 * The distinction lives in the trailing separator of the {@code bundles.info} path:
+	 * {@code plugins/x_1.0/} versus {@code plugins/x_1.0.jar}.
+	 * @param symbolicName bundle to check
+	 * @return TRUE for a directory, FALSE for a jar, null when not registered
+	 */
+	private Boolean isRegisteredAsDirectory(String symbolicName) {
+		String path = registeredPluginPath(symbolicName);
+		if (path == null)
+			return null;
+		return path.endsWith("/");
 	}
 
 	/**
