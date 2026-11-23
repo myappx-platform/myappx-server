@@ -73,6 +73,7 @@
       <plugin id="org.eclipse.jetty.websocket.core.common" autoStart="true" startLevel="0" />
       <plugin id="org.eclipse.osgi" autoStart="true" startLevel="1" />
       <plugin id="org.idempiere.felix.webconsole" autoStart="true" startLevel="0" />
+      <plugin id="org.idempiere.myappx.desktop.portal" autoStart="true" startLevel="4" />
       <plugin id="org.idempiere.myappx.extension.repository" autoStart="true" startLevel="4" />
       <plugin id="slf4j.api" autoStart="true" startLevel="3" />
       <plugin id="slf4j.jdk14" autoStart="true" startLevel="3" />

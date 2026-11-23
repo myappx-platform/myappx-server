@@ -67,6 +67,10 @@
          version="0.0.0"/>
 
    <plugin
+         id="org.idempiere.myappx.desktop.portal"
+         version="0.0.0"/>
+
+   <plugin
          id="org.adempiere.eclipse.equinox.http.servlet"
          version="0.0.0"/>
 
