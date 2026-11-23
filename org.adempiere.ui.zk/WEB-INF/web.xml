@@ -4,10 +4,6 @@
 	   xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
 	   version="4.0">
 	<display-name>MyAppx Web Client</display-name>
-	<context-param>
-		<param-name>org.eclipse.jetty.servlet.SessionCookie</param-name>
-		<param-value>WEBUI_SESSIONID</param-value>
-	</context-param>
 	<error-page>
 		<error-code>403</error-code>
 		<location>/errorpage.zul</location>
@@ -35,7 +31,6 @@
 		<filter-name>myappxDesktopPreAuthFilter</filter-name>
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
-
 	<filter>
 		<display-name>Session Fingerprint Filter</display-name>
 		<filter-name>sessionfingerprintfilter</filter-name>
@@ -145,6 +140,7 @@
 	<session-config>
 		<session-timeout>120</session-timeout>
 		<cookie-config>
+                <name>WEBUI_SESSIONID</name>
                 <http-only>true</http-only>
                 <secure>true</secure>
         </cookie-config>	

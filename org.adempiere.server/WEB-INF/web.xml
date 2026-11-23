@@ -9,11 +9,7 @@
 		<param-name>ServerRoot</param-name>
 		<param-value>1</param-value>
 	</context-param>
-	<context-param>
-		<param-name>org.eclipse.jetty.servlet.SessionCookie</param-name>
-		<param-value>ROOT_SESSIONID</param-value>
-	</context-param> 
-		<error-page>
+	<error-page>
 		<error-code>403</error-code>
 		<location>/error_root.jsp</location>
 	</error-page>
@@ -91,6 +87,9 @@
 	</servlet-mapping>
 	<session-config>
 		<session-timeout>15</session-timeout>
+		<cookie-config>
+			<name>ROOT_SESSIONID</name>
+		</cookie-config>
 	</session-config>
 	<security-constraint>
 		<web-resource-collection>
