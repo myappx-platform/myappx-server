@@ -1400,7 +1400,7 @@ public class DocumentEngine implements DocAction
 			sql = "SELECT l.Value, t.Name, t.Description "
 				+ "FROM AD_Ref_List l, AD_Ref_List_Trl t "
 				+ "WHERE l.AD_Ref_List_ID=t.AD_Ref_List_ID"
-				+ " AND t.AD_Language='" + Env.getAD_Language(Env.getCtx()) + "'"
+				+ " AND t.AD_Language=" + DB.TO_STRING(Env.getAD_Language(Env.getCtx()))
 				+ " AND l.AD_Reference_ID=? ORDER BY t.Name";
 		PreparedStatement pstmt = null;
 		ResultSet rs = null;
@@ -1515,7 +1515,7 @@ public class DocumentEngine implements DocAction
 			sql = "SELECT l.Value, t.Name, t.Description "
 				+ "FROM AD_Ref_List l, AD_Ref_List_Trl t "
 				+ "WHERE l.AD_Ref_List_ID=t.AD_Ref_List_ID"
-				+ " AND t.AD_Language='" + Env.getAD_Language(Env.getCtx()) + "'"
+				+ " AND t.AD_Language=" + DB.TO_STRING(Env.getAD_Language(Env.getCtx()))
 				+ " AND l.AD_Reference_ID=? ORDER BY t.Name";
 		PreparedStatement pstmt = null;
 		ResultSet rs = null;
